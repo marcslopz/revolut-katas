@@ -48,7 +48,8 @@ class ChargeMerchantService:
 
     def __init__(self, merchants_repository):
         self.merchants_repository = merchants_repository
-        self._lock = threading.Lock()
+        self._repo_lock = threading.Lock()
+        self._merchant_locks = {}
 
     def charge_merchant(self, merchant_id: str, amount: Decimal) -> None:
         if not merchant_id or not isinstance(merchant_id, str):
@@ -59,13 +60,14 @@ class ChargeMerchantService:
             or _quantize_amount(amount) <= self.ZERO_AMOUNT
         ):
             raise InvalidAmountException
-        if merchant_id not in self.merchants_repository:
-            raise MerchantNotFoundException
-
         amount = _quantize_amount(amount)
 
-        with self._lock:
+        with self._repo_lock:
+            if merchant_id not in self.merchants_repository:
+                raise MerchantNotFoundException
             merchant = self.merchants_repository[merchant_id]
+
+        with self._merchant_locks[merchant_id]:
             if _is_amount_exceeded(merchant, amount):
                 raise AccumulatedAmountExceededException
 
@@ -80,25 +82,32 @@ class ChargeMerchantService:
             or _quantize_amount(cap) <= self.ZERO_AMOUNT
         ):
             raise InvalidCapException
-        if merchant_id in self.merchants_repository:
-            raise AlreadyExistingMerchantException
 
-        with self._lock:
+        with self._repo_lock:
+            if merchant_id in self.merchants_repository:
+                raise AlreadyExistingMerchantException
             self.merchants_repository[merchant_id] = {
                 "charges": [],
                 "accumulated_charges": _quantize_amount(Decimal(0.0)),
                 "charges_cap": _quantize_amount(cap),
             }
+            self._merchant_locks[merchant_id] = threading.Lock()
 
     def get_cap_amount(self, merchant_id: str) -> dict[str, Decimal]:
         if not merchant_id or not isinstance(merchant_id, str):
             raise InvalidMerchantException
-        if merchant_id not in self.merchants_repository:
-            raise MerchantNotFoundException
+        with self._repo_lock:
+            if merchant_id not in self.merchants_repository:
+                raise MerchantNotFoundException
+            merchant = self.merchants_repository[merchant_id]
 
-        with self._lock:
-            cap = _quantize_amount(self.merchants_repository[merchant_id]["charges_cap"])
-            accumulated_charges = _quantize_amount(self.merchants_repository[merchant_id]["accumulated_charges"])
+        with self._merchant_locks[merchant_id]:
+            cap = _quantize_amount(
+                merchant["charges_cap"]
+            )
+            accumulated_charges = _quantize_amount(
+                merchant["accumulated_charges"]
+            )
 
         return {
             "cap": cap,

@@ -43,14 +43,9 @@ def test_not_found_merchant_should_raise_exception():
 
 
 def test_successful_first_charge():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [],
-            "accumulated_charges": Decimal(0.0),
-            "charges_cap": Decimal(20.0),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
 
     charge_merchant_service.charge_merchant("merchant_1", Decimal(10.0))
 
@@ -60,14 +55,10 @@ def test_successful_first_charge():
 
 
 def test_successful_other_than_first_charge():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [Decimal(10.0)],
-            "accumulated_charges": Decimal(10.0),
-            "charges_cap": Decimal(20.0),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
+    charge_merchant_service.charge_merchant("merchant_1", Decimal(10.0))
 
     charge_merchant_service.charge_merchant("merchant_1", Decimal(9.99))
 
@@ -82,42 +73,29 @@ def test_successful_other_than_first_charge():
 
 
 def test_first_charge_is_capped():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [],
-            "accumulated_charges": Decimal(0.0),
-            "charges_cap": Decimal(20.0),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
 
     with pytest.raises(AccumulatedAmountExceededException):
         charge_merchant_service.charge_merchant("merchant_1", Decimal(20.1))
 
 
 def test_other_than_first_charge_is_capped():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [Decimal(10.0)],
-            "accumulated_charges": Decimal(10.0),
-            "charges_cap": Decimal(20.0),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
+    charge_merchant_service.charge_merchant("merchant_1", Decimal(10.0))
 
     with pytest.raises(AccumulatedAmountExceededException):
         charge_merchant_service.charge_merchant("merchant_1", Decimal(10.1))
 
 
 def test_round_amount_half_down():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [Decimal(10.0)],
-            "accumulated_charges": Decimal(10.0),
-            "charges_cap": Decimal(20.0),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
+    charge_merchant_service.charge_merchant("merchant_1", Decimal(10.0))
 
     charge_merchant_service.charge_merchant("merchant_1", Decimal(9.113))
 
@@ -132,14 +110,10 @@ def test_round_amount_half_down():
 
 
 def test_round_amount_half_up():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [Decimal(10.0)],
-            "accumulated_charges": Decimal(10.0),
-            "charges_cap": Decimal(20.0),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
+    charge_merchant_service.charge_merchant("merchant_1", Decimal(10.0))
 
     charge_merchant_service.charge_merchant("merchant_1", Decimal(9.115))
 
@@ -251,14 +225,10 @@ def test_get_cap_invalid_merchant():
 
 
 def test_get_cap_ok():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [Decimal(11.0)],
-            "accumulated_charges": Decimal(11.0),
-            "charges_cap": _quantize_amount(Decimal(20.0)),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
+    charge_merchant_service.charge_merchant("merchant_1", Decimal(11.0))
 
     returned_quota_dict = charge_merchant_service.get_cap_amount("merchant_1")
 
@@ -266,15 +236,11 @@ def test_get_cap_ok():
     assert returned_quota_dict["quota_left"] == _quantize_amount(Decimal(9.0))
     assert returned_quota_dict["accumulated_charges"] == _quantize_amount(Decimal(11.0))
 
+
 def test_check_charge_amount_thread_safe():
-    merchants_repository = {
-        "merchant_1": {
-            "charges": [],
-            "accumulated_charges": ChargeMerchantService.ZERO_AMOUNT,
-            "charges_cap": _quantize_amount(Decimal(20.0)),
-        }
-    }
+    merchants_repository = {}
     charge_merchant_service = ChargeMerchantService(merchants_repository)
+    charge_merchant_service.register_merchant("merchant_1", Decimal(20.0))
     barrier = threading.Barrier(3)
 
     def worker():
