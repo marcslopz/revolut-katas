@@ -10,6 +10,8 @@ from main import (
     ProductAlreadyExistsException,
     ProductNotFoundException,
     NotEnoughProductQuantityException,
+    ReservationNotFoundException,
+    InvalidReservationIdException,
 )
 
 
@@ -84,7 +86,7 @@ def test_add_product_ok():
 
     assert len(product_service._products) == 1
     assert product_service._products["product_1"].available_quantity == 10
-    assert product_service._products["product_1"].reserved_quantities == []
+    assert product_service._products["product_1"].reserved_quantities == {}
 
 
 def test_add_product_thread_safe():
@@ -181,3 +183,67 @@ def test_reserve_product_quantity_thread_safe():
 
     assert results.count("success") == 1
     assert results.count("error") == 1
+
+def test_release_product_reservation_invalid_product_id():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    reservation_id = product_service.reserve_product_quantity("product_1", 9)
+
+    with pytest.raises(InvalidProductIdException):
+        product_service.release_product_reservation(None, reservation_id)
+
+
+def test_release_product_reservation_invalid_reservation_id():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    product_service.reserve_product_quantity("product_1", 9)
+
+    with pytest.raises(InvalidReservationIdException):
+        product_service.release_product_reservation("product_1", None)
+        
+def test_release_product_reservation_product_not_found():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    product_service.reserve_product_quantity("product_1", 9)
+
+    with pytest.raises(ProductNotFoundException):
+        product_service.release_product_reservation("product_2", "does not matter")
+
+def test_release_product_reservation_reservation_not_found():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    product_service.reserve_product_quantity("product_1", 9)
+
+    with pytest.raises(ReservationNotFoundException):
+        product_service.release_product_reservation("product_1", "not found")
+
+
+
+def test_release_product_reservation_ok():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    reservation_id = product_service.reserve_product_quantity("product_1", 9)
+    
+    product_service.release_product_reservation("product_1", reservation_id)
+    
+    assert product_service._products["product_1"].get_available_quantity() == 10
+    
+def test_release_product_reservation_thread_safe():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    reservation_id = product_service.reserve_product_quantity("product_1", 9)
+
+    def worker():
+        try:
+            product_service.release_product_reservation("product_1", reservation_id)
+            return "success"
+        except ReservationNotFoundException:
+            return "error"
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(worker) for _ in range(2)]
+        results = [future.result() for future in futures]
+
+    assert results.count("success") == 1
+    assert results.count("error") == 1
+
