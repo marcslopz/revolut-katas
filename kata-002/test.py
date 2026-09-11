@@ -12,6 +12,7 @@ from main import (
     NotEnoughProductQuantityException,
     ReservationNotFoundException,
     InvalidReservationIdException,
+    ReservationStatus, ReservationNotReleasable,
 )
 
 
@@ -86,7 +87,7 @@ def test_add_product_ok():
 
     assert len(product_service._products) == 1
     assert product_service._products["product_1"].available_quantity == 10
-    assert product_service._products["product_1"].reserved_quantities == {}
+    assert product_service._products["product_1"].reservations == {}
 
 
 def test_add_product_thread_safe():
@@ -246,4 +247,40 @@ def test_release_product_reservation_thread_safe():
 
     assert results.count("success") == 1
     assert results.count("error") == 1
+    
+def test_confirm_product_reservation_ok():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    reservation_id = product_service.reserve_product_quantity("product_1", 9)
+    
+    product_service.confirm_product_reservation("product_1", reservation_id)
+    
+    assert product_service._products["product_1"].get_available_quantity() == 1
+    assert product_service._products["product_1"].reservations[reservation_id].quantity == 9
+    assert product_service._products["product_1"].reservations[reservation_id].status == ReservationStatus.CONFIRMED
 
+def test_confirm_product_reservation_duplicated_ok():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    reservation_id = product_service.reserve_product_quantity("product_1", 9)
+    product_service.confirm_product_reservation("product_1", reservation_id)
+    product_service.confirm_product_reservation("product_1", reservation_id)
+
+    assert product_service._products["product_1"].get_available_quantity() == 1
+    assert (
+        product_service._products["product_1"].reservations[reservation_id].quantity
+        == 9
+    )
+    assert (
+        product_service._products["product_1"].reservations[reservation_id].status
+        == ReservationStatus.CONFIRMED
+    )
+
+def test_release_confirmed_reservation():
+    product_service = ProductService()
+    product_service.add_product("product_1", 10)
+    reservation_id = product_service.reserve_product_quantity("product_1", 9)
+    product_service.confirm_product_reservation("product_1", reservation_id)
+
+    with pytest.raises(ReservationNotReleasable):
+        product_service.release_product_reservation("product_1", reservation_id)
