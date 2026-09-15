@@ -1,3 +1,5 @@
+import bisect
+import datetime
 import threading
 from dataclasses import dataclass, field
 
@@ -29,28 +31,39 @@ class InvalidQuota(ValidationException):
 class AlreadyExistingClient(ServiceException):
     pass
 
+
 @dataclass
 class ClientDto:
     client_id: str
     quota: int
+    quota_window_seconds: int
     current_requests: int
+
+
 @dataclass
 class Client:
     client_id: str
     quota: int
-    current_requests: int = 0
+    quota_window_seconds: int
+    current_requests: list[datetime.datetime] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def record_request(self) -> bool:
         with self.lock:
-            if self.current_requests >= self.quota:
+            current_window_end = datetime.datetime.now(datetime.timezone.utc)
+            current_window_start = current_window_end - datetime.timedelta(seconds=self.quota_window_seconds)
+            index = bisect.bisect_left(self.current_requests, current_window_start)
+            self.current_requests = self.current_requests[index:]
+            if len(self.current_requests) >= self.quota:
                 return False
             else:
-                self.current_requests += 1
+                self.current_requests.append(current_window_end)
                 return True
 
     def to_dto(self) -> ClientDto:
-        return ClientDto(self.client_id, self.quota, self.current_requests)
+        return ClientDto(
+            self.client_id, self.quota, self.quota_window_seconds, self.current_requests
+        )
 
 
 def validate_client_id(client_id):
@@ -68,13 +81,15 @@ class ClientQuotaService:
         self._clients: dict[str, Client] = dict()
         self._lock = threading.Lock()
 
-    def create_client(self, client_id: str, quota: int) -> None:
+    def create_client(
+        self, client_id: str, quota: int, quota_window_seconds: int
+    ) -> None:
         validate_client_id(client_id)
         validate_quota(quota)
         with self._lock:
             if client_id in self._clients:
                 raise AlreadyExistingClient(client_id)
-            self._clients[client_id] = Client(client_id, quota)
+            self._clients[client_id] = Client(client_id, quota, quota_window_seconds)
 
     def record_client_request(self, client_id: str) -> bool:
         validate_client_id(client_id)
@@ -82,8 +97,7 @@ class ClientQuotaService:
             if client_id not in self._clients:
                 raise ClientNotFound
             client = self._clients[client_id]
-            was_record_allowed = client.record_request()
-        return was_record_allowed
+        return client.record_request()
 
     def get_client(self, client_id: str) -> ClientDto:
         validate_client_id(client_id)
