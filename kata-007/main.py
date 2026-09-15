@@ -57,7 +57,10 @@ class RoomBookings:
 
     def cancel_booking(self, booking_id):
         with self.lock:
-            self.bookings.remove(booking_id)
+            try:
+                self.bookings.remove(booking_id)
+            except ValueError:
+                pass
 
 
 @dataclass
@@ -81,7 +84,10 @@ class UserBookings:
 
     def cancel_booking(self, booking_id):
         with self.lock:
-            self.bookings.remove(booking_id)
+            try:
+                self.bookings.remove(booking_id)
+            except ValueError:
+                pass
 
 
 class RoomBookingService:
@@ -149,5 +155,8 @@ class RoomBookingService:
         user_bookings.cancel_booking(booking_id)
 
         with self._lock:
-            del self._bookings_by_id[str(booking.booking_id)]
+            try:
+                del self._bookings_by_id[str(booking.booking_id)]
+            except KeyError:
+                pass
 
