@@ -28,6 +28,7 @@ def test_register_product_invalid_stock(initial_stock):
     service = ProductService()
 
     with pytest.raises(InvalidStock):
+        # noinspection bad-argument-type
         service.register_product(initial_stock)
 
 
@@ -46,6 +47,7 @@ def test_reserve_product_invalid_quantity(quantity):
     product_id = service.register_product(1)
 
     with pytest.raises(InvalidQuantity):
+        # noinspection bad-argument-type
         service.reserve_product(product_id, quantity)
 
 
@@ -112,7 +114,7 @@ def test_release_reservation_reservation_not_found():
 def test_release_reservation_product_invalid_ids(product_id, reservation_id):
     service = ProductService()
     with pytest.raises(InvalidId):
-        service.release_reservation(product_id, reservation_id)
+        service.release_reservation(str(product_id), str(reservation_id))
 
 def test_concurrent_reservations():
     service = ProductService()
