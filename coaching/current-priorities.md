@@ -123,6 +123,13 @@ Concrete plan (from 2026-09-17 coaching session — full session log):
   visible inline in the editor without needing to open the Problems panel — the 2026-09-17 setup plan is
   actually in effect. Still awaiting a future kata to confirm this translates into catching a real str/UUID
   boundary bug before it ships.
+- New sub-shape, kata-022-focused (2026-09-21): the type-checker plan above covers Python type annotations, but
+  this instance was a **schema-level** FK type mismatch — `events.card_id UUID REFERENCES cards(card_id)` where
+  `cards.card_id` was `TEXT` — caught only when Postgres refused to apply the schema
+  (`DatatypeMismatch: ... are of incompatible types: uuid and text`), not by any static check. Broadens the
+  family from "a value crossing a service-layer boundary" to "two related table definitions disagreeing on a
+  shared key's type" — worth a quick glance at FK column types matching their referenced PK type as part of any
+  schema self-review, since PyCharm's type-checker inspection has no equivalent for this at the SQL-DDL level.
 
 **HIGH — Follow through on verbally-agreed requirements**
 Recurring: no (one occurrence, kata-008) — kept HIGH: distinct failure mode from general self-catch, no
@@ -231,6 +238,50 @@ by a bare `pytest` invocation.
 Per [[coaching-drill-vs-mock-evidence]]: drilled with scaffolding in a coaching session, not yet confirmed
 unprompted under mock pressure. Only promote to RESOLVED once a future kata's `feedback/kata-XXX.md` shows the
 behavior on its own; if it recurs, move back to CURRENT PRACTICE PRIORITIES with the added evidence.
+
+- **kata-022-focused (2026-09-21)** — mechanic drilled: transactional outbox pattern (Databases example listed
+  in `modes/coach.md`, never drilled in focused-kata format before), tied to the still-open kata-018 watch item
+  ("a claim/dequeue operation ported to SQL needs an explicit interim state") and to Revolut priority #9
+  (distributed systems/reliability). New domain (card freeze/unfreeze → push-notification outbox), full
+  in-memory → SQL port.
+  - **New, sharper instance of an already-tracked bug shape, found twice in one session in two different forms**:
+    a composite sort key's *declared/default order* silently determining correctness, not just aesthetics.
+    In-memory: `EventStatus(enum.IntEnum)` declared `CLAIMED` before `NOT_DELIVERED`, so any single validly-claimed
+    event (not even expired) sorted ahead of every fresh event in the heap and made `claim_next_event()` return
+    `None` for the **entire service** — one in-flight claim silently starved every other worker. Found unprompted
+    by the candidate while tracing a two-worker scenario the coach set up, without being told where to look.
+    SQL: Postgres's default `NULLS LAST` on `ORDER BY claimed_at ASC` meant expired-and-reclaimable events were
+    served ahead of never-touched fresh events — same conceptual mistake (assumed ordering matched intended
+    priority without checking), different mechanism (enum declaration order vs. SQL NULL-ordering default,
+    genuine new library-knowledge gap, fixed correctly once told `NULLS FIRST` exists).
+  - **New, more severe bug: TTL/lease expiry condition had an inverted sign.** `claimed_at > now_minus_ttl`
+    (reads as "still valid") was used where `claimed_at < now_minus_ttl` ("expired") was needed — the poller
+    could re-claim an event **before** its lease expired, letting two workers hold the same event simultaneously
+    well within a 60s TTL. This is a genuine concurrency-safety violation, not a priority/fairness nit like the
+    two bugs above — found only by the coach constructing and running a concrete two-worker-one-second-apart
+    scenario against real Postgres; not self-caught before declaring the stage done.
+  - **Third instance of the str/UUID-family boundary mismatch, new sub-shape**: `events.card_id UUID
+    REFERENCES cards(card_id)` where `cards.card_id` was `TEXT` — a schema-definition-level FK type mismatch,
+    caught only by Postgres refusing to apply the DDL (`DatatypeMismatch`). See the updated note on the HIGH
+    str/UUID item above.
+  - **Design gap, kept out of scope deliberately**: neither the in-memory `Event` nor the initial Postgres
+    `events` table carried any business payload (which card, what new status) — an outbox event with an empty
+    envelope. Raised directly by the coach; the candidate explicitly chose to leave Stage 1 as-is and add the
+    payload (`card_id`, `card_action`) only in the Postgres schema, accepting the inconsistency between tracks
+    as a deliberate scope call rather than fixing both — a legitimate call for a time-boxed exercise, noted for
+    completeness rather than as a gap to redrill.
+  - **Positive, unprompted**: reached for the `now: datetime | None = None` injectable-clock parameter (same
+    family as the already-RESOLVED testable-clock item) without being asked, in both the in-memory and SQL
+    services. Correctly reasoned through the `None`-vs-`datetime` heap-comparison trap from `kata-019` and
+    proactively asked how to avoid it *before* writing the buggy version, rather than after.
+  - **Verified for real, both tracks**: in-memory two-worker starvation scenario, Postgres TTL sign fix, Postgres
+    NULLS FIRST fix, and 50 events claimed exactly once with zero duplicates across 10 concurrent Postgres
+    connections.
+  - Verification needed: none of this is mock evidence. The "run your own code before declaring done" theme
+    continues unbroken (7th session: 013–018, 022) — none of the four bugs above were self-caught before saying
+    a stage was complete, all found by the coach actually executing the code. The composite-sort-key-ordering bug
+    shape (now 2 instances in one session, one in-memory/one SQL) and the TTL-sign-inversion bug are both new,
+    worth a light watch if either recurs in a future kata.
 
 - **kata-019-algorithms / kata-020-bloomfilter / kata-021-grafos (2026-09-21)** — a new, separate supplementary
   track, outside the Revolut concurrency/SQL weighting: after the user reviewed two external kata sites
@@ -609,7 +660,7 @@ behavior on its own; if it recurs, move back to CURRENT PRACTICE PRIORITIES with
    and the "no double processing" requirement fails deterministically, not just under a race. No mock data point
    yet.
 10. **"Run your own code before declaring a stage done" is now the single most consistent coaching-evidence
-    theme (6 focused-kata sessions running: 013–018, plus kata-020-bloomfilter's `iter[int]` import crash on
+    theme (7 focused-kata sessions running: 013–018, 022, plus kata-020-bloomfilter's `iter[int]` import crash on
     2026-09-21 — now confirmed outside the SQL/concurrency track too)** — still zero mock data points either
     way. Worth listening for during a full mock whether self-testing happens unprompted before declaring
     correctness.
