@@ -232,6 +232,43 @@ Per [[coaching-drill-vs-mock-evidence]]: drilled with scaffolding in a coaching 
 unprompted under mock pressure. Only promote to RESOLVED once a future kata's `feedback/kata-XXX.md` shows the
 behavior on its own; if it recurs, move back to CURRENT PRACTICE PRIORITIES with the added evidence.
 
+- **kata-019-algorithms / kata-020-bloomfilter / kata-021-grafos (2026-09-21)** — a new, separate supplementary
+  track, outside the Revolut concurrency/SQL weighting: after the user reviewed two external kata sites
+  (codekata.com, kata-log.rocks/tdd) a recruiter pointed them to ahead of Thursday's interview, we jointly
+  concluded almost all of both sites' katas were redundant with this repo's existing TDD/OOP practice, except
+  three gaps: (1) sorted-structure/heap trade-offs beyond what scheduler katas already drilled, (2) Bloom
+  filters (never covered), (3) basic weighted-graph shortest path (never covered, first time doing graphs in
+  Python at all). One session per topic, numbered like focused katas but with a topic suffix instead of
+  `-focused`, no SQL-port requirement (doesn't apply to these mechanics).
+  - **kata-019-algorithms** (support-ticket queue): correctly derived the negate-priority-for-max-heap trick and
+    the tuple/dataclass-comparator tie-break reasoning with light scaffolding; caught unprompted that a heap's
+    internal array is only heap-ordered, not fully sorted, once asked the right question, and derived the
+    copy-and-drain pattern for a non-destructive sorted view. Needed two passes to fully fix a
+    negate-before-validating-type bug (first fix moved the negation but left a value that could crash the error
+    message itself for non-negatable types). `resolve()` shipped as a no-op `pass` under a declared-done Stage 2
+    — caught only because the coach traced it, not self-caught.
+  - **kata-020-bloomfilter** (card blocklist pre-check): genuinely new material (first Bloom filter). Needed
+    the concept, and separately the `m`/`k` sizing formulas, taught with concrete worked numeric examples
+    (abstract explanation alone didn't land — see [[teaching-new-material-calibration]]) — once grounded in
+    real numbers, applied the formulas and the double-hashing index derivation correctly and finished a
+    verified-correct implementation (0 false negatives over 50k checks, 0.504% measured false-positive rate
+    against a 0.5% target). One bug: `-> iter[int]` as a return type hint (confusing the builtin function `iter`
+    with a generic type) crashed the module on import — not caught until asked directly whether the code had
+    ever been run. Same "run your own code before declaring done" shape as the SQL-track focused katas
+    (013–018), now confirmed to recur outside that track too.
+  - **kata-021-grafos** (cheapest currency-conversion path): first-ever graph/Dijkstra implementation in Python.
+    Initial theory pass assumed too much background (BFS, Big-O, NP-hard, DAG terms) and had to be restarted
+    from real zero once the user said so directly — see [[teaching-new-material-calibration]]. Once re-taught
+    with a fully concrete step-by-step trace on the user's own EUR/USD/GBP example, implemented Dijkstra +
+    path-reconstruction (`came_from`-equivalent dict) correctly on the first pass, including understanding
+    unprompted why an early break on popping the target node is still correct (heap-minimum property). Found the
+    "unreachable target" edge case unprompted (no coaching nudge), then caught on their own that their first
+    regression test for it didn't actually reproduce the disconnected case (the test graph was accidentally
+    still connected) — a clean, real-time self-catch instance.
+  - Verification needed: none of this is mock evidence, and none of it maps to the Revolut concurrency/SQL
+    priorities above — this is a separate, lower-priority supplementary track done as a hedge against a
+    non-concurrency coding-stage question. No further sessions planned unless a specific topic needs a repeat.
+
 - **kata-018-focused (2026-09-20)** — mechanic drilled: "many workers polling a shared due-item set" again
   (Revolut priority weighting, first flagged kata-012, previously drilled once in kata-013-focused), new domain
   (webhook delivery retry queue), full in-memory → SQL port.
@@ -572,5 +609,7 @@ behavior on its own; if it recurs, move back to CURRENT PRACTICE PRIORITIES with
    and the "no double processing" requirement fails deterministically, not just under a race. No mock data point
    yet.
 10. **"Run your own code before declaring a stage done" is now the single most consistent coaching-evidence
-    theme (6 focused-kata sessions running: 013–018)** — still zero mock data points either way. Worth listening
-    for during a full mock whether self-testing happens unprompted before declaring correctness.
+    theme (6 focused-kata sessions running: 013–018, plus kata-020-bloomfilter's `iter[int]` import crash on
+    2026-09-21 — now confirmed outside the SQL/concurrency track too)** — still zero mock data points either
+    way. Worth listening for during a full mock whether self-testing happens unprompted before declaring
+    correctness.
