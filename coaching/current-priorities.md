@@ -239,6 +239,62 @@ Per [[coaching-drill-vs-mock-evidence]]: drilled with scaffolding in a coaching 
 unprompted under mock pressure. Only promote to RESOLVED once a future kata's `feedback/kata-XXX.md` shows the
 behavior on its own; if it recurs, move back to CURRENT PRACTICE PRIORITIES with the added evidence.
 
+- **kata-023-focused (2026-09-22)** — mechanic drilled: priority-ranked claim queue with a TTL-based lease (many
+  workers reclaiming a shared pool via explicit lease expiry, distinct from the immediate claim/dequeue of
+  013–018/022), new domain (fraud-review case queue), full in-memory → SQL port; `mark_case_completed`'s SQL port
+  and a concurrent-complete race were dropped for time — in-memory Stage 2 fully done, SQL Stage 2 covered only
+  `claim_next_case`.
+  - **New sub-shape of the composite-sort-key-ordering bug family (3rd instance across 2 sessions, after
+    kata-022's two)**: `Case`'s `@dataclass(order=True)` field order put `status` before `priority` in the heap
+    comparator, so any UNCLAIMED case — regardless of priority — always outranked a CLAIMED-but-lease-expired
+    case, even a HIGH-priority one. Confirmed live (a LOW-priority fresh case beat a HIGH-priority reclaimable
+    one). Proposed reordering fields to lead with `priority`; when shown a concrete counter-scenario (an active,
+    not-yet-expired HIGH claim would then short-circuit the `while` loop's `return None` and starve a
+    genuinely-available LOW-unclaimed case), chose not to trace it through and reverted to the original field
+    order, explicitly accepting the original bug as a trade-off rather than resolving it. A defensible
+    time-boxed call, but the underlying mechanism (a static heap comparator can't correctly rank
+    "unclaimed-or-expired" together when availability depends on `now`, which changes without any heap
+    operation) was not derived unprompted.
+  - **SQL side of the same family, new mechanism**: `ORDER BY (priority, claimed_at) NULLS FIRST` — the
+    parenthesized pair is a row constructor, not multi-column ordering; `NULLS FIRST` only affects whole-row
+    nullness (never true here) and silently left NULL (`claimed_at`, i.e. unclaimed) sorting *last* within a
+    priority tier. Not self-caught; surfaced only by the coach running a raw `ORDER BY` against real Postgres.
+    Could not derive the correct multi-column form unprompted when asked directly — given the fix per the
+    focused-kata "if you give up, teach it" rule (`ORDER BY priority, claimed_at ASC NULLS FIRST`, no parens).
+    Fixed and verified. Worth noting: the SQL version, once fixed, achieves the fuller-correct "priority governs
+    regardless of claim status" semantics that the in-memory heap couldn't without restructuring — the same
+    mechanic has a different achievable correctness trade-off depending on data structure, a good point to be
+    able to articulate in an interview.
+  - **SQL transaction hygiene recurs a 2nd time (after kata-014-focused)**: `claim_next_case`'s SQL port had no
+    `conn.commit()` on either return path, leaving the `FOR UPDATE`-acquired row lock in a dangling open
+    transaction. Not self-caught; fixed correctly and completely once asked to trace the connection's state
+    after return. Two data points now on commit/rollback discipline after a SQL state transition.
+  - **`SELECT ... FOR UPDATE SKIP LOCKED` recalled and written correctly unprompted this time** (in the query
+    itself, no nudge needed) — continues the positive trend from kata-018 for the in-memory `heapq` half; the
+    *why* vs. plain `FOR UPDATE` needed one round of sharpening — first answer ("both block, one does nothing")
+    was directionally right but missed the precise mechanism (the blocked transaction doesn't get the
+    next-best candidate after unblocking; `LIMIT 1` already fixed the plan on one specific row, re-checked via
+    EvalPlanQual and simply dropped, returning zero rows even if other cases are available).
+  - **Existence-vs-ownership-shaped gap, in-memory, self-corrected under pushback**: `mark_case_completed` on a
+    never-claimed case succeeded if the caller passed `worker_id=None` (matches the `Case` default sentinel).
+    Correctly flagged as a bug on first read, then briefly walked back ("worker_id es None, no es un bug real"),
+    reasoning a real caller wouldn't pass `None` — reversed again once pushed on trusting an
+    unvalidated/runtime-unenforced boundary assumption, fixed (reject completing an `UNCLAIMED` case) and
+    verified. The wobble-then-correct-under-pushback shape is new — distinct from the already-RESOLVED
+    hedge-on-a-hypothetical pattern, since the first instinct here was already correct; light watch for
+    recurrence.
+  - **Concurrency (in-memory), clean**: single service-wide lock, correctly justified (the shared heap array is
+    mutated by every method, so per-case locks wouldn't protect it) — verified for real, 20 threads / 4000 claim
+    attempts, zero double-claims. Correctly caught and corrected a "the GIL protects `get_claim_pool_size`"
+    over-generalization with one nudge, landing precisely on the real boundary (GIL makes a single bytecode op
+    atomic, not a compound one like list iteration), then made a sound, explicit trade-off call to keep the
+    lock anyway given the negligible cost.
+  - **Verified for real, SQL**: 10 concurrent connections racing 30 cases, all 30 claimed exactly once, zero
+    duplicates, after the ORDER BY and commit fixes above.
+  - Verification needed: none of this is mock evidence. `mark_case_completed`'s SQL port and a
+    concurrent-complete race were not reached this session — candidate for a follow-up if this mechanic
+    (priority + TTL-lease queue) comes up again before Thursday.
+
 - **kata-022-focused (2026-09-21)** — mechanic drilled: transactional outbox pattern (Databases example listed
   in `modes/coach.md`, never drilled in focused-kata format before), tied to the still-open kata-018 watch item
   ("a claim/dequeue operation ported to SQL needs an explicit interim state") and to Revolut priority #9
