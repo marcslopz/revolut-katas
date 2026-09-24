@@ -1,8 +1,33 @@
 # Current Coaching Priorities
 
-_Last updated: 2026-09-19, after kata-001 (BORDERLINE), kata-002 (PASS), kata-003 (PASS), kata-004 (PASS),
-kata-005 (BORDERLINE, leaning PASS), kata-006 (BORDERLINE, leaning PASS), kata-007 (PASS), kata-008 (PASS),
-kata-009 (PASS), kata-010 (PASS), kata-011 (PASS, strong), kata-012 (PASS)._
+_Last updated: 2026-09-24 (INTERVIEW DAY), after kata-001 through kata-012 (see below), plus three more full
+mocks on 2026-09-23 — kata-024 (PASS), kata-025 (PASS), kata-026 (PASS, last full mock before today's
+interview) — and the kata-013-focused → kata-023-focused coaching-drill series in between (not mock evidence,
+see PRACTICED IN COACHING)._
+
+## 🎯 INTERVIEW-DAY QUICK REFERENCE (read this first)
+
+No more coding practice time — this is recall/review only. Ranked by urgency:
+
+1. **Regression test immediately after any live fix.** Confirmed **5-for-5** (kata-008, 009, 010, 012, 026),
+   never once broken. Purely mechanical — the moment you fix a bug mid-interview, the very next line is a test
+   that would have failed without the fix.
+2. **Bloom filter — name it.** kata-025: described the concept perfectly, could not produce the name, guessed
+   "dict/hash table" (wrong on both properties). Recruiter-flagged topic. One-line recall: **Bloom filter** =
+   probabilistic set membership, no false negatives, tunable false positives, O(1) bounded memory regardless of
+   set size — "cheap membership check at scale, false positives OK."
+3. **Composite sort/comparator: is there a real tie in your test?** 3-for-3 across kata-022/023/024 — a
+   secondary/tie-break field's order silently determined correctness and shipped untested every time. Before
+   moving on from any sort/heap/`ORDER BY`, ask this once, out loud.
+4. **`SELECT ... FOR UPDATE SKIP LOCKED`** (not `NOWAIT`) for concurrent pollers on a shared queue — solid now
+   (kata-024, kata-026), keep it loaded.
+5. **When fixing a bug shaped like "invariant enforced in path A, not path B"** (kata-026: TTL-expiry checked in
+   the read path, not in `release()`), the fix in one place doesn't mean the sibling path is safe — a 30-second
+   grep for other reads/writes of the same field is cheap insurance.
+
+Resolved, don't spend energy here: evasion-under-pressure, existence-vs-ownership, composite index ordering,
+isolation-level vocabulary, idempotency-key + unique-constraint pattern (3-for-3 clean: kata-024/025/026),
+transactional outbox (3-for-3 clean), deadlock-avoidance lock ordering, simplicity/no-overengineering.
 
 ## Overall trend
 Assessment: BORDERLINE → PASS → PASS → PASS → BORDERLINE (leaning PASS) → BORDERLINE (leaning PASS) → PASS →
@@ -32,6 +57,16 @@ for `NOWAIT` instead of `SELECT ... FOR UPDATE SKIP LOCKED` for concurrent-polle
 the interviewer noted "recurs across scheduler/queue/rate-limiter-style problems," so closing it once should
 generalize.
 
+**Three more full mocks, all on 2026-09-23, all PASS**: kata-024 (support ticket dispatch), kata-025 (promo code
+redemption), kata-026 (seat-hold service, last mock before today's 2026-09-24 interview). The scheduler
+vocabulary gap closed cleanly (`SKIP LOCKED` recalled unprompted in kata-024, again — with one redirect — in
+kata-026). Existence-vs-ownership is now fully resolved (clean in all three). A genuinely new, mock-confirmed
+gap emerged and repeated: a composite comparator/sort tie-break field's order silently determining correctness,
+3-for-3 across kata-022-focused/023-focused/024, the last one surviving a full mock completely uncaught. A
+time-critical recall gap surfaced in kata-025 (Bloom filter: concept understood, name and properties not
+recalled). Regression-test-after-live-fix extended its unbroken streak to 5-for-5 in kata-026. See the Quick
+Reference at the top of this file for the condensed, interview-day version of all of this.
+
 ## RECURRING WEAKNESSES (aggregated view)
 - Reactive self-catch instinct (fix what's pointed at, not proactively re-checked) — the chronic core weakness,
   12 mocks running, now including two cases where the first response under challenge was confidently wrong.
@@ -42,12 +77,8 @@ generalize.
 - Live bugs get fixed but not locked in with a regression test — confirmed 4/4 (kata-008, kata-009, kata-010,
   kata-012). No new data point in kata-011 (no live application bug was found to fix). This is now the single
   most mechanically confirmed gap in the tracker.
-- Existence check confused with ownership/authorization check — confirmed 2/2 (kata-007, kata-010); kata-010's
-  instance was introduced as a *regression* during an unrelated refactor, not present from the start. Not
-  applicable in kata-011 (domain has no owner concept distinct from the account itself). **Kata-012 is the first
-  clean counter-example**: `_validate_owner` compared the caller against the job's actual stored owner from the
-  start and held unchanged through two extension stages, unprompted. One clean mock doesn't resolve a 2/2
-  negative streak — needs at least one more clean instance before downgrading.
+- ~~Existence check confused with ownership/authorization check~~ — **RESOLVED**, see RESOLVED section (clean
+  since kata-012, reconfirmed kata-024 and kata-026).
 - Boundary type mismatches (str vs UUID) when a value crosses from a parameter into a typed/stored field —
   confirmed 2/2 (kata-008, kata-009), different concrete bug each time, same defect family. No new evidence
   either way in kata-010, kata-011, or kata-012 (kata-012's domain had no str/UUID boundary to test).
@@ -63,23 +94,49 @@ generalize.
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
 **HIGH — Add a regression test immediately after fixing any live bug found mid-mock**
-Recurring: yes (kata-008, kata-009, kata-010, kata-012) — now confirmed 4-for-4; per
-[[coaching-drill-vs-mock-evidence]] this should move to an active, direct coaching drill rather than passive
-tracking.
+Recurring: yes (kata-008, kata-009, kata-010, kata-012, kata-026) — now confirmed **5-for-5**, unbroken across
+the entire series; per [[coaching-drill-vs-mock-evidence]] this should be an active, direct coaching drill, not
+passive tracking.
 Evidence: kata-008 — two live bugs fixed (same-account type mismatch; idempotency-ordering bug), zero
 regression tests added. Kata-009 — the `get_stock()` unsynchronized-read bug was fixed live, again with no
 regression test added afterward. Kata-010 — the cross-user cancellation authorization bug was fixed live, and
 again no regression test followed; the pre-existing "different user" test still only covers a nonexistent user.
 Kata-012 — two live concurrency bugs fixed (generator-laziness defeating a lock; unsynchronized cancel/execute
-race), and again no regression test followed either fix, despite an existing barrier-synchronized concurrency
-test in the same file that could have been extended directly.
+race), and again no regression test followed either fix. Kata-026 — a partial-hold rollback bug (no unwind of
+already-held seats when a later seat in the same request was already held) was found and fixed live, correctly,
+with zero regression test — a fifth consecutive clean miss.
 Problem: Fixing a bug without a test protecting the fix means the same class of regression is invisible next
-time the code is touched. This is the single most concrete, mechanical, repeated gap in the whole tracker — the
-strongest candidate for a direct focused drill, and it has not budged across four consecutive mocks with live
-bugs.
+time the code is touched. This is the single most concrete, mechanical, repeated gap in the whole tracker — 5
+consecutive mocks with a live bug, 5 consecutive mocks with no regression test for the fix.
 Drill: Standing habit — the moment a bug is fixed mid-mock (self-caught or interviewer-surfaced), the very next
 action is a test that reproduces it, before moving to the next task. Practice by intentionally seeding a bug in
 a small snippet, fixing it, and only then being "allowed" to move on once a red-then-green test exists.
+
+**HIGH — Composite comparator/sort tie-break correctness (new, elevated from coaching to mock-confirmed)**
+Recurring: yes (kata-022-focused, kata-023-focused, kata-024 full mock) — 3-for-3, and kata-024 is the first
+time this survived a full mock uncaught, not just a focused-kata drill.
+Evidence: kata-022-focused — `EventStatus(enum.IntEnum)` declaration order silently became the tie-break field
+in a heap comparator. kata-023-focused — a `@dataclass(order=True)` field order put `status` before `priority`,
+accepted as a known trade-off after being shown a counter-scenario rather than fixed. kata-024 — `OrderedTicket`
+used a random UUID4 as the tie-break instead of the stage's own stated requirement (creation order); no test
+ever created two same-priority tickets, so it shipped silently through two stages and was only caught via a
+Stage 4 discussion question — the underlying code bug was never actually fixed.
+Problem: whenever sorting/comparing on multiple fields (dataclass `order=True`, a manual `__lt__`, a heap
+tuple, `ORDER BY`), the field order itself determines correctness, not just aesthetics — and it has now shipped
+uncaught in a full mock.
+Drill: standing reflex — whenever writing or reviewing a multi-field comparator, ask "do I have a test with a
+genuine tie on the leading field(s)?" before declaring it done.
+
+**HIGH — Bloom filter recall under pressure (new, time-critical)**
+Recurring: no (one full-mock data point, kata-025) — flagged HIGH given it is a recruiter-named topic and the
+interview is today.
+Evidence: kata-025 — asked for a memory-bounded probabilistic membership structure for a large "already
+redeemed" check, correctly described the properties (probabilistic, bounded memory, false positives) but could
+not produce the name "Bloom filter," and after a push, mischaracterized it as a dict/hash table (which has
+neither property). This is the first applied test of the kata-020-bloomfilter drill from 2026-09-21, and it did
+not generalize.
+Drill: flashcard recall — name + one-line definition + trigger phrase (see Quick Reference above). No further
+applied practice needed, just recall speed.
 
 **HIGH — Watch str/UUID boundaries specifically when a value crosses into a stored/typed field**
 Recurring: yes (kata-008, kata-009) — new tracked priority, promoted directly to HIGH given two independent
@@ -92,6 +149,10 @@ normalized at the crossing point. Currently invisible because tests don't assert
 Drill: When reviewing any kata involving both UUID and string identifiers, explicitly check every point where a
 raw parameter is stored into a typed field or compared against one, and write a quick field-level assertion
 test right after — this would likely have caught both occurrences for free.
+**Update (kata-026, 2026-09-23): no new str/UUID evidence either way** — the seat-hold domain used only `str`
+seat IDs and `uuid.UUID` reservation IDs generated internally (`uuid4()`), no service-boundary crossing of a
+raw string into a typed UUID field. Streak stays at kata-008/009 evidence only.
+
 Concrete plan (from 2026-09-17 coaching session — full session log):
 - Candidate initially proposed two fixes: (a) never type fields as `uuid.UUID`, always use validated `str`, or
   (b) rely on ruff to catch the mismatch. Self-corrected on (b) unprompted: ruff is a linter, not a type
@@ -140,36 +201,6 @@ Problem: A spoken agreement needs to become a checklist item, not just a talking
 conversation moves on.
 Drill: After any requirement is verbally confirmed with the interviewer, immediately write (or stub with a
 `# TODO` revisited before the stage is declared done) the check.
-
-**HIGH — Authorization/ownership check confused with existence check**
-Recurring: yes (kata-007, kata-010) — confirmed 2-for-2; kata-012 gives the first clean counter-example (see
-below), not yet enough to downgrade.
-Evidence: kata-007 — `cancel_booking` verified IDs existed *somewhere* instead of comparing them to the actual
-booking's stored owner; never self-caught, never fixed. Kata-010 — a *correct* owner comparison in
-`cancel_subscription` was replaced with an existence check against `_user_active_subscriptions` while adding an
-unrelated invariant in Stage 2, letting any user with their own active subscription cancel someone else's; only
-surfaced via interviewer line-by-line trace, first answer to "what does this check verify?" was confidently
-wrong before self-correcting precisely on a concrete scenario. Kata-012 (counter-evidence) — `_validate_owner`
-compared the caller's `owner_id` against the job's actual stored owner correctly from the start, unprompted, and
-held unchanged through two later extension stages with no regression.
-Problem: "Does X exist" and "does X match/own Y" are different checks; a test suite needs a
-valid-but-unrelated-party case, not just a nonexistent-party case. Kata-010 shows this can also appear as a
-*regression* introduced while refactoring for something else, not just as an original-design gap — so the
-check needs re-verifying whenever it's touched, not just when first written. Kata-012 suggests the concept is
-solid when writing the check *from scratch*; the historical failures cluster around a check being touched or
-rewritten mid-mock for an unrelated reason. Keep at HIGH per [[coaching-drill-vs-mock-evidence]] until at least
-one more clean mock confirms the pattern — including ideally one where an existing ownership check gets modified
-for an unrelated feature, which is the specific shape that has failed twice.
-Drill: For every ownership/authorization check written or touched (including during an unrelated refactor),
-explicitly ask "what happens if this ID is real but belongs to someone else?" and write that test alongside the
-nonexistent-actor case, as a reflex.
-Coaching note (kata-014-focused, 2026-09-20): drilled the specific "touched during an unrelated refactor" shape
-directly — a correct from-scratch owner-only check was then touched to add an admin-override for an unrelated
-feature (workspace moderation), the exact shape that has failed twice in real mocks. Held correctly, unprompted,
-and both directions (non-owner-non-admin denied, non-owner-admin allowed) were traced precisely on request. A
-second clean data point (after kata-012) on this variant specifically, but per
-[[coaching-drill-vs-mock-evidence]] this is coaching evidence, not mock evidence — still needs an unprompted
-clean mock instance of a check being touched mid-mock before downgrading from HIGH.
 
 **MEDIUM — Verify which lock guards a given piece of state before asserting thread-safety**
 Recurring: no (new, kata-009, one data point) — but flagged distinct from the now-resolved evasion pattern:
@@ -618,7 +649,18 @@ behavior on its own; if it recurs, move back to CURRENT PRACTICE PRIORITIES with
   multiple scenario shapes.
 - **Testable clock injection** (resolved after kata-006): no regression signal since.
 - **Idempotent-retry pattern (key + unique constraint + return-prior-result)**: kata-007, kata-008 both gave
-  this precisely and unprompted. Durable across three mocks.
+  this precisely and unprompted. Durable across three mocks; reconfirmed a further 3-for-3 in kata-024
+  (`assign_next_ticket`), kata-025 (`redeem_promo_code`), and kata-026 (`hold_seats`) — now six mocks total.
+- **Authorization/ownership check vs. existence check** (was HIGH, 2-for-2 negative through kata-007/kata-010):
+  kata-012 gave the first clean from-scratch instance (`_validate_owner`, held through two extension stages);
+  kata-024 (`Ticket.resolve`, correct from Stage 1 through two later stages) and kata-026
+  (`release_reservation`'s customer-id comparison, correct from the start) each add a further clean instance.
+  **Resolved — three consecutive clean mocks (kata-012, kata-024, kata-026)** with no new negative evidence
+  since kata-010; retire from active tracking. The specific "check touched mid-refactor for an unrelated
+  reason" shape (the variant that actually failed twice) was also drilled clean in kata-014-focused coaching,
+  reinforcing this further.
+- **Transactional outbox pattern for reliable event publishing**: reapplied correctly and unprompted across
+  three different domains (kata-022-focused, kata-024, kata-026) — treat as a solid, generalized strength.
 - **Unprompted clarifying questions** (resolved, holding since kata-004): kata-009 scored 5/5 — six mocks
   running at a healthy level.
 - **Encapsulation: don't return live internal state** (resolved after kata-003): no recurrence since.
@@ -687,7 +729,8 @@ behavior on its own; if it recurs, move back to CURRENT PRACTICE PRIORITIES with
   contention, CPU contention). Not a mock-evidenced gap; log only, no active-priority tracking needed unless a
   future mock surfaces a related communication issue.
 
-## NEXT MOCK FOCUS
+## NEXT MOCK FOCUS (historical — superseded by the Quick Reference at the top; no further mock is planned before
+today's 2026-09-24 interview)
 1. **Add the regression test as the very next action after any live bug fix**, before moving to the next task —
    confirmed 4-for-4 (kata-008, kata-009, kata-010, kata-012), still the top priority for an active direct drill
    and the most mechanical/drillable item on the board.
