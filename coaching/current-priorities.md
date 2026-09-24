@@ -265,6 +265,29 @@ Drill: Before saying a stage is done, a 5-second skim of test function names in 
 Also default to a pytest-discoverable filename (`test_*.py`/`*_test.py`) — kata-011's `test.py` wasn't collected
 by a bare `pytest` invocation.
 
+## PRACTICED IN COACHING (2026-09-24, interview day) — AWAITING NEXT KATA VERIFICATION
+
+- **kata-028-focused (2026-09-24)** — mechanic: easy/standard Build-It shape, parking-garage capacity counter
+  (`enter`/`exit`/`available_spots`, capacity invariant, concurrency), in-memory only (no SQL port this session,
+  time-boxed on interview day).
+  - **New instance of an untested boundary + a test that locked in the wrong behavior.** `exit()` had no upper
+    bound: calling it without a matching prior `enter()` pushed `available_spots()` above the stated capacity.
+    Worse, the original test for this exact case (`test_available_spots_increases_on_exit`, capacity=2, no
+    `enter()` before `exit()`) asserted `available_spots() == 3` — i.e. the test itself codified the bug as
+    correct and passed green. Same shape as kata-008/kata-011's "green suite means less than it looks like," but
+    a new sub-variant: not a duplicate/shadowed test, but a test whose assertion directly encodes the wrong
+    value.
+  - **Positive counter-signal on the top interview-day priority (regression-test-after-live-fix, 5-for-5
+    negative in full mocks): fixed correctly AND added a regression test in the same pass, unprompted** —
+    `test_exit_does_not_exceed_capacity`, plus corrected the original misleading test to actually enter before
+    exiting. First clean instance of this specific habit anywhere in the tracker (mocks or coaching). Per
+    [[coaching-drill-vs-mock-evidence]] this is coaching evidence, not mock evidence, so the 5-for-5 mock streak
+    isn't resolved by this — but it's a good sign to reinforce, especially same-day as the interview.
+  - Concurrency (in-memory): barrier-based `enter()` stress test (10 threads, capacity 4) was correct and
+    present from the first pass, same solid pattern as recent full mocks.
+  - Verification needed: whether the "fix + regression test in the same pass" habit shown here reproduces
+    unprompted in a future *full mock* — that's what would actually move the 5-for-5 streak.
+
 ## PRACTICED IN COACHING (2026-09-18) — AWAITING NEXT KATA VERIFICATION
 Per [[coaching-drill-vs-mock-evidence]]: drilled with scaffolding in a coaching session, not yet confirmed
 unprompted under mock pressure. Only promote to RESOLVED once a future kata's `feedback/kata-XXX.md` shows the
