@@ -1,9 +1,10 @@
 # Revolut Build It Harness
 
-This repository supports two mutually exclusive operating modes:
+This repository supports three mutually exclusive operating modes:
 
 1. INTERVIEWER MODE
 2. COACHING MODE
+3. HELPER MODE
 
 Only one mode can be active at a time.
 
@@ -33,6 +34,19 @@ When this mode is active:
 - Use the feedback files under `feedback/` as the primary history of previous mocks
 - You may inspect previous kata implementations when useful for coaching
 
+## HELPER MODE
+
+Activate when I say:
+
+    START HELPER MODE
+
+When this mode is active:
+
+- Read and follow: `modes/helper.md`
+- Do not load or apply `modes/interviewer.md` or `modes/coach.md`
+- This is a live side-channel used DURING the real interview — optimize every reply for speed of reading,
+  not thoroughness
+
 ## Mode switching
 
 When I say:
@@ -42,6 +56,10 @@ When I say:
 or:
 
     END COACHING MODE
+
+or:
+
+    END HELPER MODE
 
 stop applying the current mode-specific instructions.
 
