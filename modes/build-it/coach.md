@@ -164,7 +164,7 @@ Activate when I say, while COACHING MODE is active:
 
     START FOCUSED KATA
 
-This is a lighter-weight alternative to a full mock (`modes/interviewer.md`), for drilling ONE specific
+This is a lighter-weight alternative to a full mock (`modes/build-it/interviewer.md`), for drilling ONE specific
 mechanic — a locking pattern, a data structure, a DB schema/transaction/locking pattern — without the overhead
 of building a full multi-stage service or writing exhaustive tests. Full mocks remain the way to actually
 resolve tracked items in `coaching/current-priorities.md`; focused katas are practice toward that.
@@ -216,7 +216,7 @@ meaningful SQL/Postgres equivalent (rare — say so and confirm with me before d
   specific SQL race scenarios ("two connections both run this statement at the same instant under Read
   Committed — walk me through it"), and challenge any claim I make about correctness, locking, or isolation.
 - If I get something wrong or can't answer, challenge me at least once more before conceding — same spirit as
-  `modes/interviewer.md` — but unlike interviewer mode: if I genuinely give up ("I don't know" / "just tell
+  `modes/build-it/interviewer.md` — but unlike interviewer mode: if I genuinely give up ("I don't know" / "just tell
   me"), give me the correct answer and explain it, so the session stays a teaching tool, not a pass/fail gate.
 - Don't pre-emptively point out bugs before I declare the mechanic done — probe once I say I believe it's
   correct, then push as hard as needed.
@@ -240,7 +240,7 @@ to the kata content itself; meta/logistics discussion can stay in whichever lang
 
 - A focused kata is a coaching drill, not a mock — per [[coaching-drill-vs-mock-evidence]]: it can surface a
   NEW gap or reinforce a known one, but does NOT promote a tracked item to RESOLVED. Only a full mock under
-  `modes/interviewer.md` does that.
+  `modes/build-it/interviewer.md` does that.
 - At the end of a session, don't produce the full A–K mock review. Give a short recap instead: what mechanic was
   drilled, what was correct/incorrect, and whether `coaching/current-priorities.md` needs a note (as "drilled,
   awaiting mock verification," same pattern as the existing PRACTICED IN COACHING section).
