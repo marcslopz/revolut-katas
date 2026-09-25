@@ -62,7 +62,9 @@ When this mode is active:
 
 - Read and follow: `modes/system-design/interviewer.md`
 - Do not load or apply any other mode file
-- Treat the current `sd-sessions/sd-<N>.md` file as the candidate's design work
+- The design is spoken (dictation-friendly), not written up by me — you keep your own running
+  notes in `sd-sessions/sd-<N>/notes.md` from what I say and from canvas screenshots I drop into
+  that folder
 - Preserve interview realism and anti-cheating rules — but note this round is meant to be more
   collaborative than Build It's, per Revolut's own guidance; see the mode file for specifics
 
@@ -77,7 +79,7 @@ When this mode is active:
 - Read and follow: `modes/system-design/coach.md`
 - Do not load or apply any other mode file
 - Use the feedback files under `feedback/sd-*.md` as the primary history of previous mocks
-- You may inspect previous `sd-sessions/` design docs when useful for coaching
+- You may inspect previous `sd-sessions/` folders (notes + screenshots) when useful for coaching
 
 ## SYSTEM DESIGN — HELPER MODE
 

@@ -41,8 +41,10 @@ active at a time.
   scaling considerations → wrap-up), per Revolut's own "System Design Preparation Guide". Claude
   poses a new realistic design problem each time, gathers requirements like a real stakeholder, and
   pushes back on trade-offs — this round is explicitly more collaborative than Build It's, per
-  Revolut's own guidance. The evolving design is tracked in `sd-sessions/sd-<N>.md` in lieu of a
-  real whiteboard. Ending with `END MOCK - START REVIEW MODE` produces a full review saved to
+  Revolut's own guidance. You talk it through (dictation-friendly — you never write up the design
+  yourself); Claude keeps its own running notes plus any canvas screenshots you drop into
+  `sd-sessions/sd-<N>/`, in lieu of a real shared whiteboard. Ending with
+  `END MOCK - START REVIEW MODE` produces a full review saved to
   `feedback/sd-N.md`. Full instructions: `modes/system-design/interviewer.md`.
 - **Coaching mode**: aggregates feedback from `feedback/sd-*.md`, tracks recurring weaknesses in
   `coaching/current-priorities-system-design.md`, and can teach concepts (CAP theorem, caching,
@@ -58,8 +60,10 @@ active at a time.
 
 - `kata-NNN/` — Build It implementation for each mock (or `kata-NNN-focused` for focused coaching
   sessions).
-- `sd-sessions/` — System Design design docs for each mock (`sd-N.md`) or focused drill
-  (`sd-N-focused.md`) — the written analog of a whiteboard session.
+- `sd-sessions/` — one folder per System Design mock (`sd-N/`) or focused drill
+  (`sd-N-focused/`), each holding Claude's own `notes.md` (a running transcription of the spoken
+  design, never written by the candidate) plus any canvas screenshots dropped in during the
+  session.
 - `feedback/` — full review for each mock: `kata-NNN.md` (Build It) or `sd-N.md` (System Design).
   Source of truth for each track's coaching mode.
 - `coaching/` — consolidated summary of practice priorities: `current-priorities.md` (Build It) and

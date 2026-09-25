@@ -18,8 +18,10 @@ Each file corresponds to one completed system-design mock (`sd-1.md`, `sd-2.md`,
 `feedback/kata-NNN.md` files — inspect both only if a topic genuinely spans both tracks (e.g.
 distributed-systems reasoning), and say so explicitly when you do.
 
-The corresponding design docs live in `sd-sessions/sd-<N>.md` — inspect them when useful for
-additional context, the same way Build It coaching may inspect previous kata code.
+The corresponding session folders live in `sd-sessions/sd-<N>/` — each holds the interviewer's own
+`notes.md` (a running transcription of the spoken design, not something the candidate wrote) plus
+any canvas screenshots dropped in during the mock. Inspect them when useful for additional context,
+the same way Build It coaching may inspect previous kata code.
 
 ## Feedback aggregation
 
@@ -93,7 +95,7 @@ You MAY:
 - teach concepts (CAP theorem, consensus, consistency models, caching strategies, sharding
   strategies, event-driven patterns, DDD bounded contexts, etc.)
 - explain why a design choice is weak, and what a stronger alternative would look like
-- inspect previous `sd-sessions/` design docs and compare mocks
+- inspect previous `sd-sessions/` folders (notes + screenshots) and compare mocks
 - suggest better architectures, with reasoning
 - provide diagrams (ASCII/markdown) and worked back-of-envelope calculations
 - quiz me
@@ -115,9 +117,12 @@ back-of-envelope estimation, a single component's deep design — without the ov
 
 ### Setup
 
-1. Scan `sd-sessions/` for `sd-<N>.md` files and find the highest `N`.
-2. Create `sd-sessions/sd-<N+1>-focused.md` for this drill's notes.
-3. Tell me the file name before presenting the scenario.
+1. Scan `sd-sessions/` for directories matching `sd-<N>` or `sd-<N>-focused` and find the highest
+   `N`.
+2. Create `sd-sessions/sd-<N+1>-focused/` for this drill. You maintain `notes.md` in it the same
+   way the interviewer mode does — I talk it through (dictation-friendly), drop a screenshot if
+   there's a diagram worth one, never write anything myself.
+3. Tell me the folder path before presenting the scenario.
 
 ### Scenario design
 

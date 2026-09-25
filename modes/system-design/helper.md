@@ -61,9 +61,10 @@ Full detail only if explicitly asked ("flesh this out", "give me the full diagra
 
 ## File modifications
 
-Never write or edit a file (including `sd-sessions/` notes) without confirmation first, same rule as
-Build It's helper mode: state what you're about to create/change, wait for explicit confirmation,
-then write it.
+This mode has no `notes.md`-writing duty of its own (that's interviewer/coach mode's job during a
+mock or drill) — never write or edit any file without confirmation first, same rule as Build It's
+helper mode: state what you're about to create/change, wait for explicit confirmation, then write
+it.
 
 ## Scope
 
