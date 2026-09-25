@@ -1,0 +1,19 @@
+You're building a book lending system for a public library. Library members need to borrow books, return them, and the library needs to track which books are available.
+
+User Story: As a library member, I want to borrow books from the library and return them when I'm done, so that I can read books without purchasing them.
+
+Requirements:
+
+The library has a catalog of books, each with an ISBN
+
+The library may have multiple copies of the same book
+
+A member can borrow an available copy of a book
+
+A member is identified by a member ID
+
+Track which member has borrowed which book
+
+A book can only be borrowed if a copy is available
+
+When a member returns a book, it becomes available again
