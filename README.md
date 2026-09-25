@@ -46,11 +46,14 @@ active at a time.
   `sd-sessions/sd-<N>/`, in lieu of a real shared whiteboard. Ending with
   `END MOCK - START REVIEW MODE` produces a full review saved to
   `feedback/sd-N.md`. Full instructions: `modes/system-design/interviewer.md`.
-- **Coaching mode**: aggregates feedback from `feedback/sd-*.md`, tracks recurring weaknesses in
-  `coaching/current-priorities-system-design.md`, and can teach concepts (CAP theorem, caching,
-  sharding, DDD, failure handling, etc.), grounded in the resources from Revolut's own prep guide.
-  Includes **FOCUSED SD DRILL** (`START FOCUSED SD DRILL`) for drilling one mechanic without a full
-  mock. Full instructions: `modes/system-design/coach.md`.
+- **Coaching mode**: before any mocks exist, its job is **STUDY TRACKING** — keeping
+  `coaching/study-progress-system-design.md` up to date as you work through Revolut's recommended
+  articles/videos/books/hands-on practice (not a hard gate; you decide when the theory pass is done
+  and you're ready for mocks). Once mocks exist, it aggregates feedback from `feedback/sd-*.md`,
+  tracks recurring weaknesses in `coaching/current-priorities-system-design.md`, and can teach
+  concepts (CAP theorem, caching, sharding, DDD, failure handling, etc.). Includes **FOCUSED SD
+  DRILL** (`START FOCUSED SD DRILL`) for drilling one mechanic without a full mock. Full
+  instructions: `modes/system-design/coach.md`.
 - **Helper mode**: a fast-reference tool for **prep sessions only**. ⚠️ Revolut's recruiter email
   explicitly bans any AI tool that generates/suggests/displays answers in real time during the
   System Design interview — unlike Build It's helper mode, this one must **never** be opened during
@@ -64,6 +67,8 @@ active at a time.
   (`sd-N-focused/`), each holding Claude's own `notes.md` (a running transcription of the spoken
   design, never written by the candidate) plus any canvas screenshots dropped in during the
   session.
+- `coaching/study-progress-system-design.md` — checklist of Revolut's recommended System Design
+  prep resources, tracked before mocks start.
 - `feedback/` — full review for each mock: `kata-NNN.md` (Build It) or `sd-N.md` (System Design).
   Source of truth for each track's coaching mode.
 - `coaching/` — consolidated summary of practice priorities: `current-priorities.md` (Build It) and
