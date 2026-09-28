@@ -65,8 +65,10 @@ When this mode is active:
 - The design is spoken (dictation-friendly), not written up by me — you keep your own running
   notes in `sd-sessions/sd-<N>/notes.md` from what I say and from canvas screenshots I drop into
   that folder
-- Preserve interview realism and anti-cheating rules — but note this round is meant to be more
-  collaborative than Build It's, per Revolut's own guidance; see the mode file for specifics
+- Preserve interview realism and anti-cheating rules — but note this is NOT a Q&A round: the
+  candidate leads the session, and the interviewer mostly stays quiet, per Karim's (Revolut)
+  post-prep-call email correcting the PDF's more generic "collaborate" framing; see the mode file
+  for specifics
 
 ## SYSTEM DESIGN — COACHING MODE
 

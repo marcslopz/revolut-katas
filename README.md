@@ -36,12 +36,13 @@ active at a time.
 **Start coaching:** `START SYSTEM DESIGN COACHING MODE` · **End:** `END SYSTEM DESIGN COACHING MODE`
 **Start helper:** `START SYSTEM DESIGN HELPER MODE` · **End:** `END SYSTEM DESIGN HELPER MODE`
 
-- **Interviewer mode** simulates Revolut's ~55-minute, 6-phase system design interview (intro →
-  requirements → high-level architecture → deep dive on DB/scalability/security/failure handling →
-  scaling considerations → wrap-up), per Revolut's own "System Design Preparation Guide". Claude
-  poses a new realistic design problem each time, gathers requirements like a real stakeholder, and
-  pushes back on trade-offs — this round is explicitly more collaborative than Build It's, per
-  Revolut's own guidance. You talk it through (dictation-friendly — you never write up the design
+- **Interviewer mode** simulates Revolut's system design interview: ~50 min from problem statement
+  to a drafted solution (requirements → high-level MVP → low-level design with trade-off
+  justification → scaling), framed by both Revolut's "System Design Preparation Guide" PDF and a
+  sharper post-prep-call email from Karim (Revolut). Claude poses a new realistic design problem
+  each time and answers requirements like a real stakeholder — but **this is not a Q&A round: you
+  lead the session**, and Claude mostly stays quiet, redirecting only occasionally, per Karim's
+  explicit correction. You talk it through (dictation-friendly — you never write up the design
   yourself); Claude keeps its own running notes plus any canvas screenshots you drop into
   `sd-sessions/sd-<N>/`, in lieu of a real shared whiteboard. Ending with
   `END MOCK - START REVIEW MODE` produces a full review saved to
