@@ -146,6 +146,15 @@ Prefer domains with real ambiguity and multiple valid trade-offs, mixing:
   reconciliation system, a P2P transfer service, an FX rate distribution service, a rewards/cashback
   engine, a KYC document-verification pipeline, a notification/alerting platform, an audit-log /
   event-sourcing store
+- booking/reservation-style (named verbally by Karim in the prep call, 2026-09-28, alongside
+  fintech apps — "booking.com-style designs"): a hotel/room booking service, a flight/seat
+  reservation system, a restaurant table-reservation service, an equipment/resource-booking
+  platform — the interesting core is double-booking prevention under concurrent holds, availability
+  search across a large inventory, and cancellation/refund windows. Genuinely productive territory
+  given the candidate's existing concurrency strength from Build It prep (see
+  [[weak_areas_backend_concurrency]]) — push this toward the parts NOT already drilled there
+  (search/availability indexing, geo-distribution, cross-region inventory) rather than re-testing
+  the same lock-ordering ground.
 - classic large-scale systems (generalist, still commonly asked): URL shortener, news feed, chat
   system, rate limiter as a shared service, ride-hailing dispatch, video streaming, search
   autocomplete, distributed job scheduler

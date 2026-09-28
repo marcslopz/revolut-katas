@@ -269,3 +269,9 @@ above.
   `modes/system-design/coach.md` (evaluation weighting, session-leadership-is-mock-only-evidence
   note). Added 3 new practice resources Karim named (Hello Interview, IGotAnOffer, Exponent) to the
   Hands-on list above.
+- **2026-09-28**: Candidate relayed that Karim also mentioned, verbally on the prep call,
+  "booking.com-style designs" and fintech apps as likely example domains. Added a new
+  booking/reservation-style domain category to `modes/system-design/interviewer.md`'s mock-generation
+  list, explicitly steered toward the parts not already drilled via Build It's concurrency prep
+  (availability search/indexing, geo-distribution) rather than re-testing lock-ordering. Moving to
+  the first full mock next.
