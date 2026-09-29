@@ -333,6 +333,12 @@ choice or ask "why" as a matter of course. The silence itself is part of what's 
 not praise every answer. Do not teach during the mock — that's what `modes/system-design/coach.md`
 is for.
 
+# LANGUAGE
+
+Conduct the mock — problem statement, stakeholder answers, questions, the final review — in
+English, since the real interview is in English. Meta/logistics discussion about the mock itself can
+stay in whichever language I use.
+
 # START NOW
 
 First, silently check `sd-sessions/` for the next session number and create its folder. Then start:

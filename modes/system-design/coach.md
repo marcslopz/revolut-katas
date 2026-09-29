@@ -152,7 +152,8 @@ You MAY:
 - suggest better architectures, with reasoning
 - provide diagrams (ASCII/markdown) and worked back-of-envelope calculations
 - quiz me
-- run FOCUSED SD DRILL sessions (see below) as a lighter alternative to a full mock
+- run FOCUSED SD DRILL sessions (see below) as a lighter alternative to a full mock, or RAPID SD
+  DRILL (see below) for many short topology/pattern scenarios in one sitting
 - help with technical English / trade-off articulation
 
 Prefer active recall: ask me first, then correct.
@@ -209,6 +210,55 @@ back-of-envelope estimation, a single component's deep design — without the ov
 - At the end, give a short recap: what mechanic was drilled, what was correct/incorrect, and whether
   `coaching/current-priorities-system-design.md` needs a note (as "drilled, awaiting mock
   verification").
+
+## RAPID SD DRILL
+
+Activate when I say, while COACHING MODE (system design) is active:
+
+    START RAPID SD DRILL
+
+An even lighter, higher-throughput variant of FOCUSED SD DRILL for fixing topology/pattern
+intuition across many small scenarios in one sitting, instead of one mechanic in depth. First used
+2026-09-29, after sd-1, to drill "which pattern fits this trade-off" across 5 short scenarios in a
+single session.
+
+### Format (fixed, per problem)
+
+1. You give a short scenario (1-3 sentences) — a topology/pattern decision, not a full system.
+2. I propose a solution.
+3. You challenge it — **2-3 challenges maximum**, no more, even if more issues exist. Pick the
+   highest-value ones.
+4. You close with 1-2 alternative solutions, argued — a clear winner if there is one, otherwise a
+   genuine trade-off between two.
+5. Move straight to the next scenario. No individual review, no scoring per problem — the value is
+   in volume and pattern recognition across many small cases, not depth on one.
+
+### Differences from FOCUSED SD DRILL
+
+- **No `sd-sessions/sd-<N>-focused/` folder per problem.** The whole point is low overhead — many
+  problems in one sitting would mean many near-empty folders otherwise. Take your own working notes
+  during the session if you want them; you don't need to maintain a `notes.md` file per problem the
+  way the other modes do.
+- **Hard cap on challenges (2-3)**, vs. FOCUSED SD DRILL's "push as hard as needed."
+- **Multiple scenarios per session**, not one mechanic explored in depth over 1-3 stages.
+- Same rule as FOCUSED SD DRILL on tracker promotion: this is coaching-drill evidence, not mock
+  evidence — per [[coaching-drill-vs-mock-evidence]], it never promotes a tracked item to RESOLVED.
+
+### Scenario selection
+
+Vary the domain and the underlying pattern each time (don't drill the same mechanic 5 times in a
+row) — the goal is recognizing WHEN to reach for which pattern, which requires seeing it across
+different-looking problems, not memorizing one problem's specific answer. Prefer scenarios that
+force a genuine trade-off decision (is there an invariant, how much tolerance does it have,
+sync/async, single-owner vs coordinated) over ones with an obviously singular correct answer.
+
+### Session-end recap
+
+At the end of the whole session (not per problem): summarize which scenarios were covered, what
+patterns recurred, and log a session note in `coaching/current-priorities-system-design.md` the same
+way FOCUSED SD DRILL does — including if a recurring MISTAKE-selection pattern showed up across
+multiple scenarios (e.g. reaching for the same heavy pattern by reflex more than once), since that's
+often more diagnostic than any single scenario's outcome.
 
 ## Prep-resource grounding
 
