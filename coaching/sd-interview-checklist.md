@@ -12,8 +12,8 @@ Three mnemonics, one per stage. Say each phase's letters to yourself at the star
 - **F**unctional — what operations, for whom
 - **N**on-functional — scale, SLA, latency, availability
 - **I**mplicit — say ONE out loud even if not asked: compliance/regulatory, PII/payment-data
-  handling, multi-currency/timezone, business constraints. **This is the current weakest link —
-  2/2 mocks missed it entirely. Force it even if it feels unnatural.**
+  handling, multi-currency/timezone, business constraints. (Missed in sd-1/sd-2, surfaced
+  unprompted in sd-3/sd-4 — keep the habit.)
 
   ### Implicit requirements by domain family
 
@@ -37,10 +37,15 @@ Karim's email, precision matters less than showing the method and sanity-checkin
 
 | Component | Anchor | Decision it triggers |
 |---|---|---|
-| Relational DB, single primary | ~1,000-5,000 writes/sec comfortable | Below → don't shard yet. Above → sharding is a real conversation, not optional. |
-| Same primary, storage | Low single-digit TBs fine, tens of TBs hurts (backups, vacuum, reindex) | Second, independent trigger for sharding. |
+| Relational DB, single primary | 🟢 < ~2K writes/s · 🟡 ~2-10K · 🔴 > ~10K sustained | 🟢 one primary, no discussion. 🟡 big instance + time partitioning/archiving, sharding plan ready. 🔴 shard or a store built for it. Write-heavy → first ask if you can write less (batch/aggregate). Cloud IOPS/storage maxima are ceilings, not design points. |
+| Same primary, storage | 🟢 < ~5 TB · 🟡 ~5-30 TB · 🔴 > ~30-50 TB (backups/restore time, vacuum, reindex) | Storage-only growth → partition by time + archive to cold storage, usually NOT sharding. |
 | Read replicas | Scale ~linearly per node; limit is replication lag (ms-seconds), not throughput | Decides if "read from replica" is safe for a given use case. |
 | Cache (single Redis node) | ~100K-200K ops/sec, sub-ms | Capacity is effectively free — the real question is invalidation/staleness. Note: capacity and HA are separate axes — a single node may have throughput to spare and still need a replica (Sentinel/Cluster) purely for failover, not for load. |
+| Network bandwidth | 1 Gbps ≈ 125 MB/s; a normal server NIC is 10-25 Gbps (1-3 GB/s) | Tens of MB/s is trivial (one link). Only hundreds of MB/s+ sustained, or video/egress at scale, makes bandwidth a design topic (→ CDN). |
+| Websocket / push server | ~0.5-1M concurrent connections; ~1M small messages/s per server | Size EVERY resource (network, connections, messages/s) with total ÷ per-server capacity — the largest wins. Batch per user per tick before adding servers (FX drill: 150 → ~10 servers). |
+| Cloud egress cost | ≈ $0.05/GB out | 15 GB/s ≈ $2,700/hour. Reducing what you send is a cost argument, not just a performance one. |
+| Object storage cost | S3 Standard ≈ $23/TB-month; Glacier Deep Archive ≈ $1/TB-month (≈12h retrieval) | Capacity is never the problem in object storage — cost is. Justify tiering in $/month, and use lifecycle policies instead of custom archivers. |
+| Writes per business event | Fintech: one money movement ≈ 2 ledger entries + 1 transfer row + 2 balance updates | Count rows per event before multiplying — it moved round-ups from 🟢 to 🟡 in the 2026-10-02 drill. |
 | Cross-region latency | Same-region <5ms. Cross-continent one-way ~70-150ms (US-EU ~70-100ms, US-Asia ~150-200ms) | This, not raw QPS, is usually what kills a synchronous cross-region call — this was the exact number missing from the sd-2 EU-write-leader discussion. |
 
 **Prefix lookups (autocomplete/typeahead)**: not a full-text search engine (Elasticsearch is built

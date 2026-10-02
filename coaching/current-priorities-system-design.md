@@ -1,119 +1,126 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-09-29, after sd-2 (second full mock, global hotel booking, BORDERLINE)._
+_Last updated: 2026-10-02, after sd-3 (card authorization, BORDERLINE) and sd-4 (notification
+platform, PASS — low margin), both run 2026-10-01._
 
 ## Overall trend
 
-Two data points, both BORDERLINE, but for different reasons — this itself is worth tracking:
+Four mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → **first PASS**.
 
-- **sd-1**: pacing control was the dominant problem (4 interviewer redirects, one mechanism ate the
-  session).
-- **sd-2**: zero pacing redirects needed, and clear improvement on proactive trade-off narration —
-  but the session ended inside Phase 3, having never reached Database Design in depth, Security
-  beyond JWT, or Phase 4 (Scaling) at all, and closed with the candidate asking the interviewer
-  "anything else?" instead of naming the remaining gaps themselves.
+- **sd-1**: pacing chaos (4 redirects).
+- **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
+- **sd-3**: every phase reached, implicit requirements surfaced unprompted (3 of them) — but depth
+  went to a peripheral component (daily archiver) while the prompt's core (reserving money safely
+  under concurrency) was never designed. Closed with the sd-2 hand-back again.
+- **sd-4**: found the core first (priority isolation of OTP vs marketing), layered failure handling,
+  best trade-off justification so far, no hand-back at the close.
 
-Read together: the *loud* form of the session-leadership problem (visible pacing failures) is
-improving, but a *quieter* form (running out of self-generated structure before the session's
-scope is actually complete) is still present and is arguably harder to self-detect, since nothing
-felt obviously wrong in the moment. Two technical items flagged after sd-1 (distributed-transaction
-vocabulary precision, and the "is there an invariant" pattern-selection habit) are now confirmed
-resolved by sd-2 — see RESOLVED below.
+The session-leadership and implicit-requirements gaps that dominated sd-1/sd-2 are largely closed.
+What remains is a different, more technical layer: **numbers aren't sanity-checked**, **personal
+data gets replicated globally by default**, and **the canvas/schema drifts from what was said**.
 
 ## RECURRING WEAKNESSES (aggregated view)
 
-- **Reactive rather than proactive self-catch / trade-off surfacing** — the chronic Build It
-  weakness (12+ mocks, see `coaching/current-priorities.md`'s top RECURRING WEAKNESSES item and
-  [[weak_areas_backend_concurrency]]), confirmed in System Design at sd-1 and **improving** at sd-2:
-  communication score rose 3→4, with three unprompted trade-off statements in sd-2 versus zero in
-  sd-1 (single-writer consistency rationale, cache eventual-consistency rationale, circuit-breaker
-  addition). Not resolved — the EU-region SPOF trade-off in sd-2 still needed two interviewer
-  follow-ups to surface fully — but a genuine, measurable improvement, not just noise.
-- **Implicit requirements not proactively surfaced** — upgraded from a 1-data-point MEDIUM flag to a
-  confirmed recurring weakness: sd-1 (AML/compliance, fintech prompt) and sd-2 (PCI/payment-data
-  handling, a design that directly calls a payment provider) both show zero unprompted implicit
-  requirements. Two fintech-adjacent prompts, same exact gap both times.
+- **Estimation without a sanity check** — sd-3 (30M/86,400 → "19.2k", 55x off, drove a premature
+  sharding call), sd-4 (500KB midpoint "average", missing multiplication, 157 PB accepted until
+  asked), plus the 2026-09-30 numeracy drills (percent/unit-magnitude slips). The arithmetic slips
+  are noise; the real gap is **not comparing the result to anything** before building on it.
+- **Data residency on multi-region** — sd-3 (all card balances replicated to every region) and
+  sd-4 (whole users table, PII, replicated globally), both after raising GDPR/PII themselves in
+  Phase 1, and sd-4 after it was explained in the post-sd-3 Q&A the same day.
+- **Model drift / late self-catch** (evolution of the old "reactive self-catch" item) — sd-3
+  (sticky still "need sharding", diagram still "check JWT", schema missing card_id/fraud_score,
+  1s timeout vs 150ms never reconciled), sd-4 ("no sharding" after proposing sharding,
+  campaign_id used in recovery but absent from schema). Decisions change verbally; the artifact and
+  later reasoning don't follow.
+- **Components added without a stated need** — sd-3 (outbox→queue→DLQ pipeline for a daily batch
+  job), sd-4 (Redis for campaign targets, cache to avoid re-reading a file, CDN for internal ID
+  files). Simplicity scored 3 in both.
 
 ## RESOLVED (confirmed by a full mock)
 
 Per [[coaching-drill-vs-mock-evidence]]: coaching-session/drill evidence alone never promotes an
-item here — only a full mock under `modes/system-design/interviewer.md` does. sd-2 is that mock for
-both items below.
+item here — only a full mock under `modes/system-design/interviewer.md` does.
 
-- **Distributed-transaction vocabulary/mechanics precision** — sd-1 conflated 2PC with the
-  outbox+queue pattern and called a post-commit reversal a "rollback" instead of a compensating
-  transaction. The 2026-09-29 coaching pass taught the levels explicitly (outbox → Saga → 2PC →
-  2PC+consensus) and drilled it once informally; sd-2 then showed correct terminology and correct
-  pattern selection throughout a real mock with zero prompting needed on vocabulary — Saga chosen
-  correctly over 2PC, idempotency-key handling correct, "rollback" used correctly (pre-commit, so
-  it was actually the right word this time). Resolved as of sd-2 — watch for regression under
-  pressure in a future mock rather than treating this as permanently closed.
-- **"Is there an invariant, and how much tolerance does it have?" before picking a pattern** — first
-  surfaced and drilled in the 2026-09-29 RAPID SD DRILL (recurred across 3 of 5 drill scenarios).
-  sd-2 confirmed it generalizes under real mock pressure, unprompted, twice: the room-hold design
-  (short atomic status-flip instead of holding a lock through an external payment call) and the
-  cache design (accepted eventual consistency for search/availability because the real invariant —
-  no double-booking — is enforced at booking time, not at read time). Resolved as of sd-2.
+- **Implicit requirements not proactively surfaced** — 0/2 in sd-1/sd-2; after the 2026-09-30
+  domain-family drilling, **unprompted in sd-3** (audit retention, PCI, GDPR) **and sd-4** (PII in
+  content + legal proof of delivery). Two consecutive mocks → resolved as of sd-4. Watch: depth
+  per item is still shallow (sd-4 missed marketing consent; sd-3's PCI answer was imprecise —
+  tracked under Security precision below, not here).
+- **Distributed-transaction vocabulary/mechanics precision** — resolved as of sd-2 (outbox → Saga →
+  2PC levels correct under pressure). sd-3/sd-4 kept it clean (outbox, DLQ, at-least-once used
+  precisely).
+- **"Is there an invariant, and how much tolerance does it have?"** — resolved as of sd-2. Caveat
+  from sd-3: the habit fires when the candidate is *already* on the invariant, but didn't steer the
+  session *towards* the core invariant (see Core-first priority below).
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
-**HIGH — Session leadership / self-managed session completeness (evolved from sd-1's pacing framing)**
-Recurring: yes (2/2 mocks), but the *shape* of the gap changed between mocks — track both forms.
-Evidence: sd-1 — 4 interviewer redirects on pacing, one mechanism consumed the session. sd-2 — zero
-pacing redirects, but the session ended inside Phase 3 (Database Design left shallow, Security
-narrowed to JWT-only, Phase 4/Scaling never reached), and closed with the candidate twice handing
-structuring back to the interviewer ("ask me any questions about edge cases or whatever", "anything
-else?") rather than naming and closing remaining gaps itself.
-Problem: per Karim's email this is a first-class, separately graded criterion. sd-2 shows real
-progress on the loud symptom (visible pacing chaos) but a quieter, still-unresolved symptom
-(session ending before its scope is actually complete, with structure handed back to the
-interviewer) — arguably harder to self-catch because nothing felt obviously wrong in the moment.
-Drill: two standing habits — (1) at roughly the session's midpoint, explicitly name out loud which
-of the 4 phases are still untouched and budget remaining time across them; (2) ban the phrase
-"anything else?" — replace with self-naming the specific remaining gaps ("I haven't covered
-sharding or security — let me do both now") before the interviewer ever has to ask.
+**HIGH — Sanity-check every estimate before using it**
+Recurring: yes (sd-3, sd-4 + 2026-09-30 drills).
+Problem: a wrong number becomes a design decision (sd-3 sharding) or a long detour (sd-4 three
+rounds on storage). The method is right; the habit of asking "does this compare sensibly to
+something I know?" is missing.
+Drill: rapid estimation reps where every answer must end with an explicit comparison sentence
+("~350/s — about a quarter of one Postgres primary's comfort zone", "30 TB/yr — fits one big DB,
+not a petabyte problem"). Anchors: 1 day ≈ 10^5 s; 1M/day ≈ 12/s; weighted averages, not
+midpoints.
 
-**HIGH — Implicit requirements not proactively surfaced (upgraded from MEDIUM, now recurring)**
-Recurring: yes (2/2 mocks — sd-1: AML/compliance/audit-trail; sd-2: PCI/payment-data handling).
-Evidence: two different fintech-adjacent prompts, same exact requirements-phase gap both times,
-zero improvement between mocks. **Update 2026-09-30**: dedicated coaching drilling now done — a
-domain-family reference table added to `coaching/sd-interview-checklist.md`, plus 4 scenarios
-practicing unprompted implicit-requirement naming (personal lending, P2P car rental, teen social
-app, telemedicine) and 6 scenarios practicing the adjacent actor-identification skill (F of F-N-I).
-Domain-family filtering discipline (use the *right* family's items, don't cross-contaminate) landed
-within the session — two misapplications early on, both self-corrected in one challenge, clean from
-scenario 3 onward. Still coaching evidence only, not mock evidence — per
-[[coaching-drill-vs-mock-evidence]] this does not resolve the item.
-Problem: requirements-phase completeness gap specific to the "implicit requirements" bucket Karim
-named directly — reasoning/discipline now practiced, but real-interview-pressure generalization
-unconfirmed.
-Drill going forward: the standing habit (name one compliance/regulatory/PII implicit requirement
-unprompted, for any fintech- or domain-sensitive prompt) is now backed by reference material — the
-next signal to watch for is whether it surfaces unprompted in sd-3's actual Phase 1, with none of
-today's scaffolding present.
+**HIGH — Data residency by default in multi-region designs**
+Recurring: yes (sd-3, sd-4).
+Problem: Revolut is EU/UK-regulated; replicating all personal data to every region is the first
+thing a fintech interviewer will poke at, and the candidate raised GDPR themselves both times.
+Drill: every multi-region answer must state, unprompted, (1) where each user's data lives (home
+region), (2) what — if anything — crosses regions and in what minimised/pseudonymised form,
+(3) failover within the jurisdiction first. Practise the "per-region home + regional failover
+pair" topology on 3-4 domains.
 
-**MEDIUM — Reactive rather than proactive self-catch (recurring, cross-track, improving)**
-Recurring: yes, cross-track (Build It: 12+ mocks; System Design: 2/2, but trending better).
-Evidence: sd-1 — quietly relaxed the p99 SLA without flagging it; needed several follow-ups to reach
-the 2PC-blocking conclusion. sd-2 — three proactive trade-off statements unprompted (up from zero),
-but the EU-region SPOF was only fully reasoned through after two interviewer follow-ups.
-Problem: same chronic structural weakness underneath several Build It items, now showing genuine,
-measurable improvement in System Design specifically — downgraded from HIGH to MEDIUM to reflect
-that trend, not because it's resolved.
-Drill: at natural checkpoints, explicitly ask "what did I just change that contradicts something I
-said earlier?" out loud, before the interviewer has to ask it — keep going, this is working.
+**MEDIUM — Core-first and proportion of depth**
+Recurring: 1 failure (sd-3), 1 success (sd-4) — improving, needs another mock to confirm.
+Problem: in sd-3 the hardest part (reserve funds under concurrency in <150ms) never got designed
+while a daily archiver got the most detail. sd-4 did it right (priority isolation first).
+Drill: after requirements, say out loud "the hardest part of this system is X" and design X
+end-to-end before peripheral components. Rapid "name the core" reps across fintech prompts.
+
+**MEDIUM — Keep the canvas and schema in sync (model drift)**
+Recurring: yes (sd-3, sd-4); absorbs the older "reactive self-catch" item, which has improved
+(communication 3→4→3→4, proactive trade-offs now the norm).
+Drill: at each phase boundary, re-read sticky notes + schema against what's been said since and
+fix drift aloud ("I introduced campaign_id — adding it to the schema"; "the sticky still says
+sharding — striking it").
+
+**MEDIUM — Justify each component by need (simplicity)**
+Recurring: yes (sd-3 archiver pipeline, sd-4 caches/CDN).
+Drill: for every box added after the skeleton, one sentence: "I add X because Y would otherwise
+break at Z." If the sentence doesn't come, don't add the box. Specifically: batch data movement →
+partitions + export, not outbox/queue; CDN → public, read-many, geo-spread content only.
+
+**MEDIUM — Security precision for card/PII data**
+Recurring: sd-3 imprecise (TDE ≠ protection from DB access, TLS without cert validation,
+password auth for the network, no tokenization); sd-4 correct (mTLS, vault/tokens, log masking,
+per-type RBAC) but taught the same day — same-day transfer, not independent recall.
+Drill: verify in a future mock without same-day priming. Reference: the at-rest table (disk/TDE →
+field encryption → tokenization) and machine-to-machine auth (mTLS / client credentials) from the
+post-sd-3 Q&A.
+
+**LOW — Session leadership: close with risks, and self-start L-R-G**
+Recurring: improving strongly (sd-1 redirects → sd-2 hand-back + incomplete → sd-3 complete but
+hand-back → sd-4 complete, no hand-back). Remaining: sd-4 closed with a recap rather than open
+risks, and the local→regional→global step started only when asked (sd-3 skipped "local").
+Drill: closing script "With more time: (1) … (2) … (3) …" ranked by risk; open Phase 4 with "first,
+what breaks within one region".
 
 ## Positive signals worth reinforcing (not gaps)
 
-- **Cross-mock generalization, confirmed**: the short-atomic-lock + transactional-outbox pattern was
-  taught explicitly, drilled once informally (2026-09-29), then reproduced correctly and unprompted
-  under real sd-2 mock pressure — the clearest evidence so far that a coaching lesson survives past
-  the session it was taught in and into live interview conditions.
-- Idempotency-key + duplicate-check handling — now confirmed 2-for-2 in System Design (sd-1, sd-2)
-  on top of an already-strong Build It record.
-- Quick, non-defensive self-correction whenever challenged directly, across both mocks.
-- sd-2 specifically: unprompted circuit-breaker proposal when asked what was still missing — a
-  correct, well-targeted answer even if the follow-up on its exact behavior was thin.
+- **Failure handling is now a strength** (sd-4: 4/5): checkpoint + idempotent consumer, DLQ,
+  replicated broker, per-provider breakers + rate limits, load shedding by priority unprompted.
+- **Idempotency** — 4-for-4 across SD mocks on top of the Build It record.
+- **Quorum-based regional failover** — taught 2026-10-01 in coaching, then reproduced correctly
+  and consistently in both sd-3 and sd-4.
+- **Trade-off justification with cost** — sd-4's active-passive defence (consistency, cost of idle
+  regions, latency vs each SLA) is the best of the four mocks; cost reasoning appeared for the
+  first time.
+- Fast, non-defensive self-correction on a single probe (every mock).
 
 ## PRACTICED IN COACHING — AWAITING NEXT MOCK VERIFICATION
 
@@ -122,10 +129,9 @@ can surface or reinforce a gap, but doesn't promote anything to RESOLVED. Only a
 does that. (Two prior entries here — the RAPID SD DRILL and the strong-consistency teaching pass —
 are now confirmed by sd-2 and have moved to RESOLVED above.)
 
-Next candidates for a coaching drill, per the CURRENT PRACTICE PRIORITIES above: requirements-phase
-implicit-requirements habit (zero improvement so far, may need dedicated drilling rather than a
-standing reminder), and session-completeness time-boxing (new instantiation of the session-
-leadership gap).
+(The entries below predate sd-3/sd-4. Their open questions — implicit requirements unprompted,
+D-I-S-E depth under the clock, quorum failover recall — were answered by those mocks; see RESOLVED
+and Positive signals above.)
 
 - **2026-09-30 — back-of-envelope numeracy + storage-selection drill (2 scenarios), building the
   new `coaching/sd-interview-checklist.md` script.** Grew out of the candidate flagging that they
@@ -412,3 +418,40 @@ leadership gap).
   and, in the quorum case, direct teaching of genuinely new material; sd-3 is what tests whether any
   of it holds up unprompted, under the clock, without a coach available to redirect when the
   narrative jumps ahead of itself.
+
+- **2026-10-02 — RAPID SD DRILL on the two HIGH items (estimate sanity + data residency), 7
+  scenarios.** Coaching evidence only — does not resolve either item.
+
+  Estimation (S1 round-ups, S3 KYC uploads, S5 FX websocket push, S7 fraud feature cache):
+  - **Comparison-sentence habit landed mid-session**: absent in S3 (went straight from number to
+    design), present unprompted in S1 (thin) and S5 (vs server NIC, correct), partial in S7.
+  - **Wrong anchor selected for the resource — 2x, the most diagnostic pattern**: S1 used cloud
+    ceilings (RDS max IOPS/storage) as design thresholds; S7 applied on-disk DB storage anchors
+    (TB, vacuum) to an in-memory cache. Comparing is now habitual; *choosing the right yardstick*
+    isn't yet. Replaced the old 1-5K rule with 🟢🟡🔴 zones + memory/bandwidth/websocket/egress/
+    object-storage anchors in `coaching/sd-interview-checklist.md`.
+  - **Dropped term / unit slip — 2x** (S3: 20% retries applied to photos not video; S7: 60 GB vs
+    15 TB/partition). Mechanical, self-caught on challenge, consistent with 2026-09-30.
+  - New concepts taught: rows-per-business-event in fintech (double-entry: 1 money movement ≈ 5
+    row writes — moved S1 from 🟢 to 🟡); the binding resource (S5: messages/s needed ~150 servers
+    vs ~10 for bandwidth or connections); "write/send less before scaling" (batching, subscribed
+    pairs only, delta encoding = 100x); cost per month as the object-storage comparison.
+  - Good scoping questions before computing (S3 retention of failed attempts, S7 total vs per-
+    window size, S7 memory-only scope).
+  - S7 skipped failure/recovery of the cache until told (HA replica per shard, rebuild derived
+    data from the event log).
+
+  Data residency (S2 shared account EU+US, S4 global fraud model, S6 offshore support centre):
+  - **Instinct is now correct first time in all three** — home-region data, minimisation at
+    source, only what's needed crosses, remote access recognised as a transfer (S6, a point many
+    miss). Clear improvement over sd-3/sd-4.
+  - **Recurring mistake-selection: reaching for user consent as the legal basis — 2x** (S2, S6).
+    Taught: contract necessity / SCCs (+ TIA) / adequacy / DPF; consent is a last resort; AML
+    retention overrides erasure.
+  - Knowledge gaps taught directly: pseudonymised ≠ anonymous (S4); the legal entity holding the
+    account decides its home region, not traffic/cost (S2); federated learning by name (S4); VDI
+    / remote browser isolation, DLP, break-glass, just-in-time case-scoped access (S6).
+  - Proposing a same-region-only MVP (S2) is the simplicity move to reach for.
+
+  Watch in sd-5: right-yardstick comparison sentences; residency stated unprompted in Phase 4
+  without saying "consent".
