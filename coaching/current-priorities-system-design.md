@@ -1,6 +1,7 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-04, after sd-8 (mobile top-ups, strong PASS). Previous update: after sd-7._
+_Last updated: 2026-10-04, after sd-9 (transaction history feed, PASS — moderate margin). Previous
+update: after sd-8._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
 (consistency, availability, durable state across failures, idempotency, sync vs async, data
@@ -10,7 +11,7 @@ priorities, never counted against a mock. See CALIBRATION in `modes/system-desig
 ## Overall trend
 
 Seven mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
-PASS (sd-6, after recalibration) → PASS (sd-7) → **PASS, strong** (sd-8).
+PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → **PASS, moderate** (sd-9).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -42,6 +43,13 @@ PASS (sd-6, after recalibration) → PASS (sd-7) → **PASS, strong** (sd-8).
   timeout, checker with explicit criteria, breaker + disabling the UI); only late reversal needed a
   probe. Money path entity-first again. Every sd-7 J-section fix applied unprompted. Remaining:
   schema missing the phone number + client idempotency key; peak factor dropped at 10x.
+
+- **sd-9** (different shape: read-heavy, event-driven CQRS projection): best questioning so far
+  (asked about out-of-order events herself), idempotent projection `(transaction_id, seq)` +
+  outbox-on-insert, residency 4th mock running. But 5 interventions on core points: first-insert
+  upsert bug, feed sorted by `updated_at` (no transaction time), night-burst lag vs the 5 s SLA (two
+  prompts), Phase 4 bottleneck pushed. Single-column indexes again; read volume of a read-heavy
+  service never asked.
 
 Session leadership, implicit requirements (generic ones) and simplicity are now stable. The fail
 risk is technical correctness in the prompt's core and the regulatory topology — both are things a
@@ -98,9 +106,20 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
+**HIGH — Schema completeness + indexes derived from the main query** (raised from MEDIUM after sd-9)
+Recurring: sd-6 (no amount/currency, no payment row), sd-8 (no phone number, no client idempotency
+key), **sd-9** (no transaction time → feed sorted by `updated_at`; single-column indexes when every
+query is per user — a regression of the sd-7 lesson; unnecessary seq index). Now the most persistent
+technical gap. Each time it's a field or index the candidate's *own flow* depends on.
+Drill (two steps, 30 seconds, before presenting any table):
+1. Write the main query out loud (`WHERE user_id = ? ORDER BY occurred_at DESC LIMIT 50`) and derive
+   the index from it, **user first**.
+2. Walk your own flow and tick every field it uses and every key you said you dedupe on.
+
 **MEDIUM — Failure paths for every external call, without being asked** (downgraded from HIGH
 after sd-8: success/failed/pending/5xx/timeout + checker covered unprompted; only **late reversal**
-needed a probe. One more clean mock → RESOLVED.)
+needed a probe. sd-9 had no external call; its six crash/duplicate edge cases were unprompted and
+correct — still awaiting a clean external-call mock to resolve.)
 Recurring: sd-6 (crash mid-saga deferred and never answered), sd-7 (provider reject never covered,
 returns only when prompted, recovery worker only after a probe). The happy path comes out right
 first; failure outcomes wait for the interviewer.
@@ -109,8 +128,9 @@ late reversal** — and what each does to the row's status and the hold. Wheneve
 status column, name the recovery worker in the same breath: "non-terminal AND updated_at < now − N,
 SKIP LOCKED; created → resend with the same key, sent → query the provider".
 
-**MEDIUM — Phase 4: one new bottleneck and its cost per step** (sd-8: named the aggregator +
-cost options after one push — improving, not yet unprompted)
+**MEDIUM — Phase 4: one new bottleneck and its cost per step** (sd-8 and sd-9: named the right
+bottleneck — aggregator, Postgres primary → shard by user_id — but only after a push, and sd-9 without
+numbers or cost. Opener to practise: "at 10x: N writes/s → X is the bottleneck → fix Y, which costs Z".)
 Recurring: sd-4, sd-5, sd-6, sd-7 (no explicit local → regional → global staging; sd-7 named no
 bottleneck at scale). Residency is now solid; what's missing is "what breaks next and what does the
 fix cost" (e.g. provider rate limits on payday → throttle/queue; replica lag → read-your-writes).
@@ -126,14 +146,12 @@ Drill: add a **"time" family** to the implicit-requirements checklist (time zone
 vs fixed interval, month-end clamping, business days, cut-off times, "executed by when?") and in
 Phase 1 always ask "what does a domain expert worry about that a generic CRUD app wouldn't?"
 
-**MEDIUM — Keep the canvas and schema in sync (model drift) + schema completeness**
-sd-6 (no amount/currency, no payment row), sd-8 (no phone number, no client idempotency key, outbox
-vs status-publisher drift). Drill: 30-second check of every table against your own flow — every
-field you said you use, every key you said you dedupe on.
-Recurring: yes (sd-3, sd-4, sd-5).
-Drill: at each phase boundary, re-read sticky notes + schema against what's been said since and
-fix drift aloud ("I introduced `reason` — adding it"; "dropping `pending`, the outbox replaces
-it"). When a decision reverses, name the reversal ("I'm going back on the 4-table split because…").
+**MEDIUM — Decisions follow new facts (model drift + re-checking earlier decisions)**
+Recurring: sd-3, sd-4, sd-5 (canvas drift), sd-8 (outbox vs status publisher), **sd-9** (consumers drawn
+writing to Elastic/NoSQL directly *and* via the outbox; "lag the burst until 7 AM" decided before
+asking the freshness SLA and not revisited when "5 s at any time" arrived).
+Drill: when a new requirement or answer arrives, say "does this change anything I already decided?"
+out loud; at each phase boundary, re-read the canvas against what's been said.
 
 **LOW — Security precision for payments/PII data** (downgraded per Calibration: principle level
 is enough; legal bases, PCI scoping detail and regulatory names are bonus. Still worth saying the
@@ -147,7 +165,9 @@ Drill: Security checklist must open with "who may do what to which object" (auth
 money-moving setup flow, "SCA/step-up?". PCI = card data (PAN) only.
 
 **LOW — Sanity-check every estimate before using it** (downgraded from HIGH; sd-8: peak factor
-dropped when recomputing at 10x, storage 10x misstated — conclusions held)
+dropped when recomputing at 10x, storage 10x misstated — conclusions held; sd-9: write-side peaks
+all right, but the **read volume of a read-heavy service was never asked** — for read-heavy prompts,
+size reads first)
 Recurring: sd-3/sd-4 failures → 2026-10-02 drill → **sd-5 clean**: every rate right first time,
 storage explicitly compared ("360 GB/yr fits one DB, even 3–5 years") and used to decide no
 sharding. One clean mock; a second one moves it to RESOLVED (same bar as implicit requirements).
