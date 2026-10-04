@@ -27,6 +27,7 @@ Three mnemonics, one per stage. Say each phase's letters to yourself at the star
   | **E-commerce/marketplace** | PCI if cards touched directly, returns/refunds policy, tax (VAT/sales tax varies by region), seller verification |
   | **Healthcare** | HIPAA/health-data GDPR rules, mandatory record retention, explicit consent for data sharing |
   | **Social/UGC** | Content moderation, age verification/minor protection, GDPR right-to-be-forgotten |
+  | **Anything scheduled / time-based** (added after sd-5) | User time zone (store IANA name, e.g. `Europe/Lisbon`, never an offset — DST), calendar rule vs fixed interval ("monthly" ≠ 30 days; derive occurrence *n* from the start date, clamp 29–31 to month end), business days + scheme cut-offs (batch schemes only), "executed by when?" SLA, push (standing order) vs pull (direct debit) |
   | **Baseline, applies almost everywhere with EU users** | GDPR (deletion, export, consent), encryption of PII at rest and in transit |
 
 ### Anchor numbers for N (order of magnitude, not precision)
@@ -99,6 +100,24 @@ in-memory, sub-ms operation — no inference, no live ranking.
 - **E**dge cases — pick 2-3 concrete failure scenarios, walk each through **detect → prevent →
   recover**, not just "here's what could go wrong"
 
+- **Money path — per-hop duplicate hunt** (added after sd-5): walk producer → DB → outbox → queue →
+  consumer → ledger/provider → callback and, at each hop, say "if it crashes here: duplicated /
+  lost / fine — and what stops it". Mandatory checks:
+  1. **Natural idempotency key** from the business event with a UNIQUE constraint (e.g.
+     `UNIQUE(schedule_id, occurrence_date)`), plus a **deterministic** `payment_id` derived from it
+     (UUIDv5) that flows through ledger, outbox, other cell, external provider. Never a fresh random
+     UUID per attempt; retries keep the same id (`attempt` column if you need to count).
+  2. **Never "atomic" across two systems** (DB + queue, DB + another cell's DB) → transactional
+     outbox; each transaction touches one DB only.
+  3. **No check-then-act on a balance** → one conditional statement
+     (`UPDATE … SET balance = balance − x WHERE id = ? AND balance >= x`; 0 rows = insufficient).
+  4. **Double-entry ledger**: every payment's entries sum to zero; reconciliation checks it.
+  5. **Saga compensation only on a definitive answer from the side that commits, never on a
+     timeout.** A timeout means "I don't know". Make "too late" a shared rule: the message carries
+     `expires_at`; the receiver rejects after it and stores a tombstone (`inbound_payments(P1,
+     'rejected')`); the sender asks for the status and compensates only on `rejected`.
+  6. Retries: exponential backoff **until a business deadline**, not a retry count; tell the user.
+
 For every choice here: name it AND justify it (user angle + business angle) before moving on —
 don't wait to be asked why.
 
@@ -107,6 +126,48 @@ don't wait to be asked why.
 - **L**ocal → **R**egional → **G**lobal, explicitly, as three separate steps
 - At each step: what's the new bottleneck (not just "more of the same"), what does the fix cost,
   what would you deliberately let degrade rather than fail outright
+
+### Multi-region for fintech = cells per legal entity (added after sd-5; residency failed sd-3/4/5)
+
+**Open Phase 4 with this, before any word about replication:**
+
+> "Locally, one cell handles our numbers. Regionally, I add **one cell per legal entity** (EU, UK,
+> US…): each user's data lives only in their home cell, writes go only there, failover stays inside
+> the jurisdiction. Globally, only a pseudonymous `user_id → cell` directory is shared, and
+> cross-cell payments send only the instruction needed."
+
+- **Cell** = full copy of the system (API, DB, scheduler, outbox, queue, ledger, local scheme
+  connector). Home cell = legal entity that holds the account, not where the user connects from.
+- **Writes**: many primaries, but each row has exactly one — no multi-master conflicts. Never a
+  single global primary; never global read replicas of PII.
+- **Failover** inside the jurisdiction (Frankfurt ↔ Dublin), never to another continent.
+- **External payment** (to another bank's IBAN): stays entirely in the payer's cell → local scheme
+  connector. Other Revolut cells are not involved.
+- **Internal cross-cell payment** (UK Ana → EU Luis), each step one local transaction:
+  1. UK: conditional debit Ana + credit "owed to EU entity" + ledger entries + `P1 =
+     sent_to_EU` + outbox `{payment_id, to_account_ref, amount, currency, payer_name, reference,
+     expires_at}`
+  2. UK relay → **inter-cell payment API** (internal, mTLS)
+  3. EU: insert `inbound_payments(P1)` (PK = dedupe) + credit Luis + "owed by UK entity" + ledger
+     + outbox ack
+  4. EU relay → ack → 5. UK: `P1 = confirmed` (idempotent update)
+  Inter-entity accounts are settled **net daily** with a real transfer — each entity is a separate
+  regulated balance sheet (safeguarding).
+- **Legal basis when data crosses** — never "consent", never "inform the user":
+
+  | Crossing | Basis |
+  |---|---|
+  | Payment instruction the user ordered | Contract necessity (+ adequacy EU↔UK) |
+  | Analytics/fraud features | Pseudonymise/aggregate + SCCs + TIA, or keep regional |
+  | Remote support access | Counts as a transfer → SCCs + VDI, logged, just-in-time access |
+  | UK → US | UK–US Data Bridge / SCCs, or contract necessity for the user's own payment |
+
+- **Payment schemes** (one connector per cell): SEPA (EUR; SCT batch ~D+1 business days with
+  cut-off, SCT Inst 24/7), FPS (UK, GBP, near-instant 24/7), ACH (US, batch 1–3 days, returns
+  arrive days later), SWIFT (global messaging via correspondents). Batch schemes → store requested
+  date vs expected settlement date separately, and have a returns/reconciliation path
+  (`sent → confirmed/returned`). A non-business-day order is deemed received the next business day
+  (PSD2).
 
 ## Mid-session checkpoint (self-imposed, ~25 min in)
 

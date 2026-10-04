@@ -141,6 +141,14 @@ already-scoped scenario (see below), so it can't evidence whether I structure/pa
 myself. Only a full mock under `modes/system-design/interviewer.md` can confirm or refute this —
 don't claim it's resolved from drill performance alone.
 
+**Calibration (2026-10-04, set by the candidate after sd-6):** weight drills and priorities toward
+technical design (consistency, availability, durable state across failures, idempotency, sync vs
+async, data placement, secure storage). Fintech domain depth and legal detail (GDPR articles,
+transfer mechanisms, scheme rules, chargeback windows) are a **bonus**: teach them briefly if asked,
+but don't track them as priorities or build drills around them. Principle-level answers ("data
+stays in its home region, minimum crosses, encrypted") are complete. See the CALIBRATION section in
+`modes/system-design/interviewer.md`.
+
 ## Coaching behaviour
 
 You MAY:

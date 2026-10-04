@@ -1,11 +1,17 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-02, after sd-3 (card authorization, BORDERLINE) and sd-4 (notification
-platform, PASS — low margin), both run 2026-10-01._
+_Last updated: 2026-10-04, after sd-6 (payment links, PASS after recalibration) and the
+technical-over-domain recalibration. Previous update: after sd-5._
+
+**Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
+(consistency, availability, durable state across failures, idempotency, sync vs async, data
+placement, secure storage). Fintech domain depth and legal detail are a bonus: not tracked as
+priorities, never counted against a mock. See CALIBRATION in `modes/system-design/interviewer.md`.
 
 ## Overall trend
 
-Four mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → **first PASS**.
+Six mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
+**PASS** (sd-6, after recalibration).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -14,28 +20,44 @@ Four mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → **first P
   under concurrency) was never designed. Closed with the sd-2 hand-back again.
 - **sd-4**: found the core first (priority isolation of OTP vs marketing), layered failure handling,
   best trade-off justification so far, no hand-back at the close.
+- **sd-5**: process skills held (all phases, own transitions, own summary incl. deployment +
+  monitoring, simplicity 4, estimates right first time with a storage comparison). Failed on
+  **money-path correctness** (dual-write claim, random-UUID idempotency key with no per-occurrence
+  uniqueness, balance check-then-act — exactly-once path only walked through when probed),
+  **data residency for the 3rd time** (stated the rule, then single EU primary + global replicas),
+  and **domain modelling** ("monthly" as `period_in_days = 30`; no time-zone/month-end/business-day
+  questions).
 
-The session-leadership and implicit-requirements gaps that dominated sd-1/sd-2 are largely closed.
-What remains is a different, more technical layer: **numbers aren't sanity-checked**, **personal
-data gets replicated globally by default**, and **the canvas/schema drifts from what was said**.
+- **sd-6**: data residency right from Phase 1 to Phase 4, unprompted (cell per region, in-region
+  multi-AZ failover, only minimal data crosses, link→cell directory). Consistency mechanics precise
+  (conditional writes, SELECT FOR UPDATE, partial unique), reasoned sync choice, lost-webhook
+  reconciliation. Remaining technical gap: no payment row / no durable state before the external
+  calls (crash mid-flow can't be resumed); credit-before-debit order.
+
+Session leadership, implicit requirements (generic ones) and simplicity are now stable. The fail
+risk is technical correctness in the prompt's core and the regulatory topology — both are things a
+fintech interviewer probes first.
 
 ## RECURRING WEAKNESSES (aggregated view)
 
-- **Estimation without a sanity check** — sd-3 (30M/86,400 → "19.2k", 55x off, drove a premature
-  sharding call), sd-4 (500KB midpoint "average", missing multiplication, 157 PB accepted until
-  asked), plus the 2026-09-30 numeracy drills (percent/unit-magnitude slips). The arithmetic slips
-  are noise; the real gap is **not comparing the result to anything** before building on it.
-- **Data residency on multi-region** — sd-3 (all card balances replicated to every region) and
-  sd-4 (whole users table, PII, replicated globally), both after raising GDPR/PII themselves in
-  Phase 1, and sd-4 after it was explained in the post-sd-3 Q&A the same day.
-- **Model drift / late self-catch** (evolution of the old "reactive self-catch" item) — sd-3
-  (sticky still "need sharding", diagram still "check JWT", schema missing card_id/fraud_score,
-  1s timeout vs 150ms never reconciled), sd-4 ("no sharding" after proposing sharding,
-  campaign_id used in recovery but absent from schema). Decisions change verbally; the artifact and
-  later reasoning don't follow.
-- **Components added without a stated need** — sd-3 (outbox→queue→DLQ pipeline for a daily batch
-  job), sd-4 (Redis for campaign targets, cache to avoid re-reading a file, CDN for internal ID
-  files). Simplicity scored 3 in both.
+- **Data residency on multi-region** — sd-3 (card balances replicated everywhere), sd-4 (users
+  table + PII global), **sd-5** (opened Phase 4 with "user data must stay in the region", then single
+  EU write primary for all users + read replicas in every region; "inform the user" as mitigation).
+  The 2026-10-02 RAPID drill had it correct 3/3 → **drill-to-mock transfer failure**: the rule is
+  known, but under the clock the latency/simplicity argument for one primary wins and the rule is
+  dropped.
+- **Exactly-once / duplicate safety on the money path** (new aggregate; sd-3 + sd-5) — sd-3 never
+  designed the reserve-funds core; sd-5: "publish to the queue inside the DB transaction" (dual
+  write → double payment), idempotency key = fresh UUID (no `UNIQUE(schedule_id, occurrence)`),
+  balance checked in the consumer, debited later by the provider (check-then-act). Fixed with an
+  outbox after one probe. Regression of the "distributed-transaction mechanics" item resolved at
+  sd-2 — the vocabulary is there, the per-hop duplicate analysis isn't done unprompted.
+- **Model drift / late self-catch** — sd-3, sd-4, **sd-5** (tables 1 → 2 → 4 → 2; `pending` added then
+  dropped; `reason`, outbox, nullable `end_at` never reached the canvas; automatic quorum promotion
+  vs "wait for Europe" never reconciled). Three mocks running.
+- **Core-first and proportion of depth** — sd-3 fail, sd-4 success, **sd-5 fail** (Phase 1 + start of
+  Phase 2 spent on table layout — needed a redirect; the scheduler → occurrence → exactly-once path
+  only described when asked).
 
 ## RESOLVED (confirmed by a full mock)
 
@@ -44,83 +66,117 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
 
 - **Implicit requirements not proactively surfaced** — 0/2 in sd-1/sd-2; after the 2026-09-30
   domain-family drilling, **unprompted in sd-3** (audit retention, PCI, GDPR) **and sd-4** (PII in
-  content + legal proof of delivery). Two consecutive mocks → resolved as of sd-4. Watch: depth
-  per item is still shallow (sd-4 missed marketing consent; sd-3's PCI answer was imprecise —
-  tracked under Security precision below, not here).
-- **Distributed-transaction vocabulary/mechanics precision** — resolved as of sd-2 (outbox → Saga →
-  2PC levels correct under pressure). sd-3/sd-4 kept it clean (outbox, DLQ, at-least-once used
-  precisely).
-- **"Is there an invariant, and how much tolerance does it have?"** — resolved as of sd-2. Caveat
-  from sd-3: the habit fires when the candidate is *already* on the invariant, but didn't steer the
-  session *towards* the core invariant (see Core-first priority below).
+  content + legal proof of delivery). Two consecutive mocks → resolved as of sd-4. sd-5 kept the
+  habit (audit, PII, GDPR unprompted) **but all generic**: zero domain-specific items (time zones,
+  month-end, business days, cut-offs, SCA) — tracked as the new domain-modelling item below.
+- **Distributed-transaction vocabulary/mechanics precision** — resolved as of sd-2; held in
+  sd-3/sd-4. **sd-5 regression** (dual-write claim, fixed after a probe) — now tracked under the
+  HIGH exactly-once item below; if it recurs in sd-6, move it back out of RESOLVED.
+- **"Is there an invariant, and how much tolerance does it have?"** — resolved as of sd-2. sd-5:
+  invariant stated unprompted ("sufficient balance *at execution time*") — but not enforced
+  atomically (see exactly-once item).
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
-**HIGH — Sanity-check every estimate before using it**
-Recurring: yes (sd-3, sd-4 + 2026-09-30 drills).
-Problem: a wrong number becomes a design decision (sd-3 sharding) or a long detour (sd-4 three
-rounds on storage). The method is right; the habit of asking "does this compare sensibly to
-something I know?" is missing.
-Drill: rapid estimation reps where every answer must end with an explicit comparison sentence
-("~350/s — about a quarter of one Postgres primary's comfort zone", "30 TB/yr — fits one big DB,
-not a petabyte problem"). Anchors: 1 day ≈ 10^5 s; 1M/day ≈ 12/s; weighted averages, not
-midpoints.
+**MEDIUM — Data residency by default in multi-region designs** (downgraded from HIGH after sd-6)
+Recurring: sd-3, sd-4, sd-5 failures → **sd-6 correct, unprompted, Phase 1 through Phase 4**. One
+clean mock; a second one moves it to RESOLVED. Principle-level answers are enough (see
+Calibration): no legal-basis recall required.
+Problem: Revolut is EU/UK-regulated; one global write primary (or global read replicas) is the
+first thing a fintech interviewer pokes at. The candidate states the rule and then designs against
+it — the latency/simplicity argument for one primary wins under pressure.
+Drill (changed format — rule recall alone didn't transfer): Phase 4 must **open with the topology
+before any replication word**: "one cell per jurisdiction (EU, UK, …), user pinned to the home
+cell by legal entity, standby inside the same jurisdiction, only a pseudonymous user→cell
+directory is global." Then L-R-G on top of that. Practise it as a 60-second spoken opener on 4–5
+domains; any answer that mentions "single primary for all users" or "replicas in every region"
+before the cell layout counts as a fail.
 
-**HIGH — Data residency by default in multi-region designs**
-Recurring: yes (sd-3, sd-4).
-Problem: Revolut is EU/UK-regulated; replicating all personal data to every region is the first
-thing a fintech interviewer will poke at, and the candidate raised GDPR themselves both times.
-Drill: every multi-region answer must state, unprompted, (1) where each user's data lives (home
-region), (2) what — if anything — crosses regions and in what minimised/pseudonymised form,
-(3) failover within the jurisdiction first. Practise the "per-region home + regional failover
-pair" topology on 3-4 domains.
+**HIGH — Exactly-once on the money path: payment row first, durable state, per-hop duplicates**
+Recurring: yes (sd-3 core undesigned, sd-5 dual write + weak idempotency key + check-then-act,
+**sd-6** no payment row at all, sync saga with no state persisted before external calls,
+credit-before-debit). Now the #1 technical priority. Interview sentence: *"I persist the payment
+row and its status before each external call, so a recovery worker can resume it; reserve the
+payer first, credit last; every call idempotent by payment_id."*
+Problem: the pieces (outbox, at-least-once, idempotency key, DLQ) are named, but nobody walks the
+pipeline asking where a duplicate or a loss can be born. A random UUID key or a DB+queue "atomic"
+write is a double payment.
+Drill: for each pipeline, trace every hop (producer → DB → outbox → queue → consumer → ledger/
+provider → callback) and say "if it crashes here: duplicated / lost / fine — and the key or
+constraint that stops it". Mandatory checks: (1) is the idempotency key **natural** (derived from
+the business event, e.g. `(schedule_id, occurrence_date)`), with a UNIQUE constraint? (2) any
+"atomic" write spanning two systems → outbox; (3) any check-then-act on a balance → one atomic
+ledger op (conditional debit / reserve); (4) is the key passed to the external provider?
 
-**MEDIUM — Core-first and proportion of depth**
-Recurring: 1 failure (sd-3), 1 success (sd-4) — improving, needs another mock to confirm.
-Problem: in sd-3 the hardest part (reserve funds under concurrency in <150ms) never got designed
-while a daily archiver got the most detail. sd-4 did it right (priority isolation first).
+**LOW (bonus) — Domain modelling of the core business concept (time/calendar)**
+Recurring: no (sd-5 only). Per Calibration, domain depth is a bonus; kept only because "monthly ≠
+30 days" is a modelling correctness issue, not legal/domain trivia.
+Problem: "monthly rent on the 1st" was modelled as `period_in_days = 30`; no questions about user
+time zone, month-end (29th–31st), weekends/bank holidays, scheme cut-off — the implicit
+requirements specific to this domain. Generic implicit reqs (audit/PII/GDPR) are habitual;
+domain-specific ones aren't.
+Drill: add a **"time" family** to the implicit-requirements checklist (time zone / DST, calendar
+vs fixed interval, month-end clamping, business days, cut-off times, "executed by when?") and in
+Phase 1 always ask "what does a domain expert worry about that a generic CRUD app wouldn't?"
+
+**MEDIUM — Core-first and proportion of depth (incl. no schema before the flow)**
+Recurring: sd-3 fail, sd-4 success, sd-5 fail.
+Problem: sd-3 depth on a peripheral archiver; sd-5 depth on table layout in Phase 1/2 (needed the
+one redirect) while the exactly-once execution flow waited for a probe.
 Drill: after requirements, say out loud "the hardest part of this system is X" and design X
-end-to-end before peripheral components. Rapid "name the core" reps across fintech prompts.
+end-to-end before peripheral components. Rule: **no table columns before the end-to-end flow
+exists on the canvas**. Rapid "name the core" reps across fintech prompts.
 
 **MEDIUM — Keep the canvas and schema in sync (model drift)**
-Recurring: yes (sd-3, sd-4); absorbs the older "reactive self-catch" item, which has improved
-(communication 3→4→3→4, proactive trade-offs now the norm).
+Recurring: yes (sd-3, sd-4, sd-5).
 Drill: at each phase boundary, re-read sticky notes + schema against what's been said since and
-fix drift aloud ("I introduced campaign_id — adding it to the schema"; "the sticky still says
-sharding — striking it").
+fix drift aloud ("I introduced `reason` — adding it"; "dropping `pending`, the outbox replaces
+it"). When a decision reverses, name the reversal ("I'm going back on the 4-table split because…").
 
-**MEDIUM — Justify each component by need (simplicity)**
-Recurring: yes (sd-3 archiver pipeline, sd-4 caches/CDN).
-Drill: for every box added after the skeleton, one sentence: "I add X because Y would otherwise
-break at Z." If the sentence doesn't come, don't add the box. Specifically: batch data movement →
-partitions + export, not outbox/queue; CDN → public, read-many, geo-spread content only.
+**LOW — Security precision for payments/PII data** (downgraded per Calibration: principle level
+is enough; legal bases, PCI scoping detail and regulatory names are bonus. Still worth saying the
+technical basics unprompted: authZ/ownership, webhook signature + dedupe, encryption at rest and in
+transit, rate limiting.)
+Recurring: sd-3 imprecise; sd-4 correct (same-day priming); sd-5 solid baseline (JWT, mTLS,
+encryption at rest, log masking, vault tokens) **but PCI mis-scoped to bank accounts again**
+(sd-3 + sd-5, corrected on one probe), **no authZ/ownership check**, **no SCA** for setting up a
+payment to a new payee, no rate limiting, no service identity for executions with no user present.
+Drill: Security checklist must open with "who may do what to which object" (authZ) and, for any
+money-moving setup flow, "SCA/step-up?". PCI = card data (PAN) only.
 
-**MEDIUM — Security precision for card/PII data**
-Recurring: sd-3 imprecise (TDE ≠ protection from DB access, TLS without cert validation,
-password auth for the network, no tokenization); sd-4 correct (mTLS, vault/tokens, log masking,
-per-type RBAC) but taught the same day — same-day transfer, not independent recall.
-Drill: verify in a future mock without same-day priming. Reference: the at-rest table (disk/TDE →
-field encryption → tokenization) and machine-to-machine auth (mTLS / client credentials) from the
-post-sd-3 Q&A.
+**LOW — Sanity-check every estimate before using it** (downgraded from HIGH)
+Recurring: sd-3/sd-4 failures → 2026-10-02 drill → **sd-5 clean**: every rate right first time,
+storage explicitly compared ("360 GB/yr fits one DB, even 3–5 years") and used to decide no
+sharding. One clean mock; a second one moves it to RESOLVED (same bar as implicit requirements).
+Residual watch: peak *within* the day (assumed the 1st's load spread over 24h — ask "do these all
+fire at the same time?") and a comparison sentence for QPS, not just storage.
+
+**LOW — Justify each component by need (simplicity)**
+Downgraded from MEDIUM: sd-3/sd-4 scored 3, **sd-5 scored 4** (no sharding, no cache, conditional
+provider queue). Watch for one more mock.
 
 **LOW — Session leadership: close with risks, and self-start L-R-G**
-Recurring: improving strongly (sd-1 redirects → sd-2 hand-back + incomplete → sd-3 complete but
-hand-back → sd-4 complete, no hand-back). Remaining: sd-4 closed with a recap rather than open
-risks, and the local→regional→global step started only when asked (sd-3 skipped "local").
+Recurring: improving strongly; sd-5 again no hand-back, closing summary self-driven (added
+deployment + monitoring). Remaining: no explicit local → regional → global staging in sd-4 or sd-5;
+the summary recaps instead of naming open risks; no questions for the interviewer at wrap-up
+(have 1–2 ready).
 Drill: closing script "With more time: (1) … (2) … (3) …" ranked by risk; open Phase 4 with "first,
-what breaks within one region".
+what breaks within one region" — **after** the residency cell opener above.
 
 ## Positive signals worth reinforcing (not gaps)
 
-- **Failure handling is now a strength** (sd-4: 4/5): checkpoint + idempotent consumer, DLQ,
-  replicated broker, per-provider breakers + rate limits, load shedding by priority unprompted.
-- **Idempotency** — 4-for-4 across SD mocks on top of the Build It record.
-- **Quorum-based regional failover** — taught 2026-10-01 in coaching, then reproduced correctly
-  and consistently in both sd-3 and sd-4.
-- **Trade-off justification with cost** — sd-4's active-passive defence (consistency, cost of idle
-  regions, latency vs each SLA) is the best of the four mocks; cost reasoning appeared for the
-  first time.
-- Fast, non-defensive self-correction on a single probe (every mock).
+- **Failure handling vocabulary is a strength** (sd-4: 4/5, sd-5: DLQ, ack-after-success, provider
+  circuit breaker + rate-limited backlog drain, canary per service, queue depth/age + provider error
+  rate monitoring — all unprompted).
+- **Idempotency** named in every SD mock — but sd-5 shows *naming* ≠ a structurally sound key (see
+  HIGH exactly-once item).
+- **Quorum-based regional failover** — reproduced again in sd-5 (majority-connectivity + priority
+  list), plus a sensible domain-specific alternative ("don't promote, wait for Europe — payments
+  tolerate delay"), though the two weren't reconciled.
+- **Estimation drives decisions** — sd-5's "no sharding" came straight from the numbers.
+- **Trade-off justification with cost** — sd-4 best; sd-5 kept stating trade-offs (one vs two
+  tables, wait vs promote), though some flipped without naming the reversal.
+- Fast, non-defensive self-correction on a single probe (every mock — sd-5: PCI, outbox).
 
 ## PRACTICED IN COACHING — AWAITING NEXT MOCK VERIFICATION
 
@@ -455,3 +511,71 @@ and Positive signals above.)
 
   Watch in sd-5: right-yardstick comparison sentences; residency stated unprompted in Phase 4
   without saying "consent".
+
+- **2026-10-03 — post-sd-5 coaching: calendar modelling, peak re-estimate, and a teaching pass on
+  cells / cross-cell sagas.** Coaching evidence only — resolves nothing.
+  - Self-diagnosis of sd-5 named calendar/time-zone and residency, but **not** the exactly-once
+    failures (dual write, random idempotency key, check-then-act) — had to be pointed out.
+  - Calendar fixes landed quickly: start as a date, period as a calendar choice, 09:00 in the
+    user's time zone; month-end clamping and "derive occurrence n from start_date, not from the
+    previous execution" correct on first ask. Taught: IANA zone names (DST), weekend/holiday rule is
+    a business trade-off and only applies to batch schemes, PSD2 "deemed received next business
+    day", requested vs settlement date, push (standing order) vs pull (direct debit).
+  - Peak re-estimate with time-zone execution: 1,111 executions/s right; then executions × 9 row
+    writes computed with an **unclear unit** ("3,333 on each instant" — correct per-hour figure is
+    ~10k writes/s, burst 36M) — same instant-vs-rate slip family as earlier drills. Conclusion
+    (spread/throttle, only the day matters) right; taught overnight materialisation + throttled
+    executor.
+  - **Cells were genuinely new material, not a recall gap** — asked for a worked example twice
+    ("no me ha quedado claro"), then for table-by-table writes per cell. Needed concepts taught
+    from scratch: cell = full stack per legal entity; external payment never touches another
+    Revolut cell; inter-cell payment API; double-entry and why each cell needs an inter-entity
+    account (separate regulated balance sheets, net daily settlement); deterministic payment_id
+    vs natural key; payment schemes (SEPA SCT/Inst, FPS, ACH, SWIFT) — had only heard of SEPA/SWIFT.
+  - First attempt at the cross-cell flow put a separate "transfer service" call **after** writing
+    both ledgers (ledger treated as a log, not as the money movement) and sent the payer id but
+    not the payee ref or payment_id. Retry/compensation answer: idempotent retries + compensate
+    after N retries — then, on the partition scenario, proposed "UK compensates and tells EU to
+    compensate too" (temporary double money + reversing a credit the payee may have spent).
+    Taught: compensate only on a definitive answer from the committing side; `expires_at` +
+    receiver-side tombstone; deadline-based retries.
+  - All of the above added to `coaching/sd-interview-checklist.md` (time row in implicit table,
+    money-path per-hop checks, Phase 4 cells section with opener, cross-cell flow, legal-basis table,
+    schemes).
+  - Candidate explicitly asked for **many more cases** of this kind: transfers, multi-cell /
+    multi-region, legal placement of data ("qué va en cada sitio"), sagas, edge cases,
+    compensations. Next sessions: RAPID SD DRILL scenarios built around those, then sd-6 to verify.
+
+- **2026-10-04 — RAPID SD DRILL: 5 different fintech products, increasing difficulty** (format
+  requested by the candidate: blocks / flow + transactions / async / where it lives / one failure,
+  no full mock). Earlier the same session (2026-10-03) a case-1 cross-cell FX variant was done and
+  a cross-cell "user relocates" case was rejected by the candidate as too convoluted — they want
+  breadth across product types, not deeper variants of transfers. Coaching evidence only.
+  - Cases: (1) KYC onboarding, (2) savings vault with daily interest, (3) cashback engine,
+    (4) share trading via external US broker, (5) real-time card fraud scoring (<50 ms, global
+    model).
+  - **Recurring strengths (5/5)**: outbox + relay, conditional UPDATE for caps/limits,
+    idempotency keys sent to providers, circuit breaker with half-open + rate-limited recovery,
+    DLQ + status-query reconciliation, "unknown ≠ failed" (case 4, applying the saga lesson from the
+    day before). Asked good clarifying questions before designing (cases 2–4) — one re-ask of a
+    settled answer (vault withdrawals).
+  - **Recurring mistake-selection — "fix values at event time" missed 2x**: FX rate looked up on
+    retry (cross-cell FX case) and partner cashback % looked up on day 8 instead of at clearing
+    (case 3). Same root: re-evaluating a mutable input downstream instead of carrying it in the
+    message/row. Taught as one rule ("retries/delayed jobs must be deterministic").
+  - **Domain mechanics were the main knowledge gap, not reasoning** — each needed teaching:
+    vendor `refer` outcome + sanctions/PEP screening (KYC); one ledger per cell with many accounts
+    (vault); card lifecycle auth → clearing → refund/chargeback (cashback); partial fills = many
+    execution reports for ONE order, not a new order — candidate defended the new-order model once
+    (would double-buy) (trading); available vs booked balance + holds table, price collar (trading).
+    Fraud: no model-serving block, no latency budget breakdown, read-replica lag on velocity
+    features.
+  - **Data classification / precision**: HMAC proposed for a non-personal partner-merchant list
+    (over-protection); "HMAC encryption" (HMAC is keyed hashing); random token for a phone lookup
+    (needs a deterministic keyed hash); signed URL for passport images valid 1 week.
+  - **Legal basis still not recalled**: KYC → SCCs before DPA/in-region vendor; fraud training →
+    "no idea" (fraud prevention is the GDPR-named legitimate interest, Recital 47). Same gap as the
+    2026-10-02 drill ("consent" 2x). Facts-to-accumulate, but they're exactly what a Revolut
+    interviewer asks.
+  - Idempotency by constraint (vault accrual `UNIQUE(account_id, accrual_date)`) had to be pointed
+    out again — batch cursors were offered as the safety mechanism.
