@@ -1,7 +1,6 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-04, after sd-7 (withdrawals, clear PASS — first mock on the quarter-point
-scale). Previous update: after sd-6 and the technical-over-domain recalibration._
+_Last updated: 2026-10-04, after sd-8 (mobile top-ups, strong PASS). Previous update: after sd-7._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
 (consistency, availability, durable state across failures, idempotency, sync vs async, data
@@ -11,7 +10,7 @@ priorities, never counted against a mock. See CALIBRATION in `modes/system-desig
 ## Overall trend
 
 Seven mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
-PASS (sd-6, after recalibration) → **PASS, strongest so far** (sd-7).
+PASS (sd-6, after recalibration) → PASS (sd-7) → **PASS, strong** (sd-8).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -38,6 +37,11 @@ PASS (sd-6, after recalibration) → **PASS, strongest so far** (sd-7).
   before the provider call → idempotent provider key → debit + release in one TX); only the
   recovery worker needed a probe. Residency clean for the 2nd mock running. Simplicity 4.75.
   Remaining: failure paths (provider reject) only when asked; thin Phase 4; callback auth/authZ.
+
+- **sd-8**: failure paths of the external call covered **unprompted** (success/failed/pending/5xx/
+  timeout, checker with explicit criteria, breaker + disabling the UI); only late reversal needed a
+  probe. Money path entity-first again. Every sd-7 J-section fix applied unprompted. Remaining:
+  schema missing the phone number + client idempotency key; peak factor dropped at 10x.
 
 Session leadership, implicit requirements (generic ones) and simplicity are now stable. The fail
 risk is technical correctness in the prompt's core and the regulatory topology — both are things a
@@ -86,9 +90,17 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
   minimal data crosses). Two consecutive mocks → resolved as of sd-7. Watch: "region down" answered
   with AZs in sd-7 (a full-region outage needs a second region inside the jurisdiction).
 
+- **Exactly-once on the money path (payment row first, durable state, hold before the irreversible
+  step, idempotent provider key)** — failed sd-3, sd-5, sd-6; **designed unprompted in sd-7** (one
+  probe for the recovery worker) **and sd-8** (clean). Resolved as of sd-8.
+- **Core-first and proportion of depth** — sd-3/sd-5/sd-6 failures; **sd-7 and sd-8 went to the
+  core (the money entity and its flow) within the first minutes**. Resolved as of sd-8.
+
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
-**HIGH — Failure paths for every external call, without being asked** (new, sd-7; also sd-6)
+**MEDIUM — Failure paths for every external call, without being asked** (downgraded from HIGH
+after sd-8: success/failed/pending/5xx/timeout + checker covered unprompted; only **late reversal**
+needed a probe. One more clean mock → RESOLVED.)
 Recurring: sd-6 (crash mid-saga deferred and never answered), sd-7 (provider reject never covered,
 returns only when prompted, recovery worker only after a probe). The happy path comes out right
 first; failure outcomes wait for the interviewer.
@@ -97,28 +109,11 @@ late reversal** — and what each does to the row's status and the hold. Wheneve
 status column, name the recovery worker in the same breath: "non-terminal AND updated_at < now − N,
 SKIP LOCKED; created → resend with the same key, sent → query the provider".
 
-**MEDIUM — Phase 4: one new bottleneck and its cost per step**
+**MEDIUM — Phase 4: one new bottleneck and its cost per step** (sd-8: named the aggregator +
+cost options after one push — improving, not yet unprompted)
 Recurring: sd-4, sd-5, sd-6, sd-7 (no explicit local → regional → global staging; sd-7 named no
 bottleneck at scale). Residency is now solid; what's missing is "what breaks next and what does the
 fix cost" (e.g. provider rate limits on payday → throttle/queue; replica lag → read-your-writes).
-
-**MEDIUM — Exactly-once on the money path: payment row first, durable state, per-hop duplicates**
-(downgraded from HIGH after sd-7: designed correctly unprompted, one probe for the recovery
-worker. One more clean mock → RESOLVED.)
-Recurring: yes (sd-3 core undesigned, sd-5 dual write + weak idempotency key + check-then-act,
-**sd-6** no payment row at all, sync saga with no state persisted before external calls,
-credit-before-debit). Now the #1 technical priority. Interview sentence: *"I persist the payment
-row and its status before each external call, so a recovery worker can resume it; reserve the
-payer first, credit last; every call idempotent by payment_id."*
-Problem: the pieces (outbox, at-least-once, idempotency key, DLQ) are named, but nobody walks the
-pipeline asking where a duplicate or a loss can be born. A random UUID key or a DB+queue "atomic"
-write is a double payment.
-Drill: for each pipeline, trace every hop (producer → DB → outbox → queue → consumer → ledger/
-provider → callback) and say "if it crashes here: duplicated / lost / fine — and the key or
-constraint that stops it". Mandatory checks: (1) is the idempotency key **natural** (derived from
-the business event, e.g. `(schedule_id, occurrence_date)`), with a UNIQUE constraint? (2) any
-"atomic" write spanning two systems → outbox; (3) any check-then-act on a balance → one atomic
-ledger op (conditional debit / reserve); (4) is the key passed to the external provider?
 
 **LOW (bonus) — Domain modelling of the core business concept (time/calendar)**
 Recurring: no (sd-5 only). Per Calibration, domain depth is a bonus; kept only because "monthly ≠
@@ -131,15 +126,10 @@ Drill: add a **"time" family** to the implicit-requirements checklist (time zone
 vs fixed interval, month-end clamping, business days, cut-off times, "executed by when?") and in
 Phase 1 always ask "what does a domain expert worry about that a generic CRUD app wouldn't?"
 
-**MEDIUM — Core-first and proportion of depth (incl. no schema before the flow)**
-Recurring: sd-3 fail, sd-4 success, sd-5 fail.
-Problem: sd-3 depth on a peripheral archiver; sd-5 depth on table layout in Phase 1/2 (needed the
-one redirect) while the exactly-once execution flow waited for a probe.
-Drill: after requirements, say out loud "the hardest part of this system is X" and design X
-end-to-end before peripheral components. Rule: **no table columns before the end-to-end flow
-exists on the canvas**. Rapid "name the core" reps across fintech prompts.
-
-**MEDIUM — Keep the canvas and schema in sync (model drift)**
+**MEDIUM — Keep the canvas and schema in sync (model drift) + schema completeness**
+sd-6 (no amount/currency, no payment row), sd-8 (no phone number, no client idempotency key, outbox
+vs status-publisher drift). Drill: 30-second check of every table against your own flow — every
+field you said you use, every key you said you dedupe on.
 Recurring: yes (sd-3, sd-4, sd-5).
 Drill: at each phase boundary, re-read sticky notes + schema against what's been said since and
 fix drift aloud ("I introduced `reason` — adding it"; "dropping `pending`, the outbox replaces
@@ -156,7 +146,8 @@ payment to a new payee, no rate limiting, no service identity for executions wit
 Drill: Security checklist must open with "who may do what to which object" (authZ) and, for any
 money-moving setup flow, "SCA/step-up?". PCI = card data (PAN) only.
 
-**LOW — Sanity-check every estimate before using it** (downgraded from HIGH)
+**LOW — Sanity-check every estimate before using it** (downgraded from HIGH; sd-8: peak factor
+dropped when recomputing at 10x, storage 10x misstated — conclusions held)
 Recurring: sd-3/sd-4 failures → 2026-10-02 drill → **sd-5 clean**: every rate right first time,
 storage explicitly compared ("360 GB/yr fits one DB, even 3–5 years") and used to decide no
 sharding. One clean mock; a second one moves it to RESOLVED (same bar as implicit requirements).
