@@ -1,7 +1,7 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-04, after sd-6 (payment links, PASS after recalibration) and the
-technical-over-domain recalibration. Previous update: after sd-5._
+_Last updated: 2026-10-04, after sd-7 (withdrawals, clear PASS — first mock on the quarter-point
+scale). Previous update: after sd-6 and the technical-over-domain recalibration._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
 (consistency, availability, durable state across failures, idempotency, sync vs async, data
@@ -10,8 +10,8 @@ priorities, never counted against a mock. See CALIBRATION in `modes/system-desig
 
 ## Overall trend
 
-Six mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
-**PASS** (sd-6, after recalibration).
+Seven mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
+PASS (sd-6, after recalibration) → **PASS, strongest so far** (sd-7).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -33,6 +33,11 @@ Six mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low 
   (conditional writes, SELECT FOR UPDATE, partial unique), reasoned sync choice, lost-webhook
   reconciliation. Remaining technical gap: no payment row / no durable state before the external
   calls (crash mid-flow can't be resumed); credit-before-debit order.
+
+- **sd-7**: money path designed entity-first **unprompted** (withdrawal row → hold → state persisted
+  before the provider call → idempotent provider key → debit + release in one TX); only the
+  recovery worker needed a probe. Residency clean for the 2nd mock running. Simplicity 4.75.
+  Remaining: failure paths (provider reject) only when asked; thin Phase 4; callback auth/authZ.
 
 Session leadership, implicit requirements (generic ones) and simplicity are now stable. The fail
 risk is technical correctness in the prompt's core and the regulatory topology — both are things a
@@ -76,23 +81,30 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
   invariant stated unprompted ("sufficient balance *at execution time*") — but not enforced
   atomically (see exactly-once item).
 
+- **Data residency by default in multi-region designs** — failed sd-3, sd-4, sd-5; **correct and
+  unprompted in sd-6 and sd-7** (cell per region, home-region ownership, in-region failover, only
+  minimal data crosses). Two consecutive mocks → resolved as of sd-7. Watch: "region down" answered
+  with AZs in sd-7 (a full-region outage needs a second region inside the jurisdiction).
+
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
-**MEDIUM — Data residency by default in multi-region designs** (downgraded from HIGH after sd-6)
-Recurring: sd-3, sd-4, sd-5 failures → **sd-6 correct, unprompted, Phase 1 through Phase 4**. One
-clean mock; a second one moves it to RESOLVED. Principle-level answers are enough (see
-Calibration): no legal-basis recall required.
-Problem: Revolut is EU/UK-regulated; one global write primary (or global read replicas) is the
-first thing a fintech interviewer pokes at. The candidate states the rule and then designs against
-it — the latency/simplicity argument for one primary wins under pressure.
-Drill (changed format — rule recall alone didn't transfer): Phase 4 must **open with the topology
-before any replication word**: "one cell per jurisdiction (EU, UK, …), user pinned to the home
-cell by legal entity, standby inside the same jurisdiction, only a pseudonymous user→cell
-directory is global." Then L-R-G on top of that. Practise it as a 60-second spoken opener on 4–5
-domains; any answer that mentions "single primary for all users" or "replicas in every region"
-before the cell layout counts as a fail.
+**HIGH — Failure paths for every external call, without being asked** (new, sd-7; also sd-6)
+Recurring: sd-6 (crash mid-saga deferred and never answered), sd-7 (provider reject never covered,
+returns only when prompted, recovery worker only after a probe). The happy path comes out right
+first; failure outcomes wait for the interviewer.
+Drill: for every external call say the four outcomes — **success / reject / timeout (unknown) /
+late reversal** — and what each does to the row's status and the hold. Whenever state lives in a
+status column, name the recovery worker in the same breath: "non-terminal AND updated_at < now − N,
+SKIP LOCKED; created → resend with the same key, sent → query the provider".
 
-**HIGH — Exactly-once on the money path: payment row first, durable state, per-hop duplicates**
+**MEDIUM — Phase 4: one new bottleneck and its cost per step**
+Recurring: sd-4, sd-5, sd-6, sd-7 (no explicit local → regional → global staging; sd-7 named no
+bottleneck at scale). Residency is now solid; what's missing is "what breaks next and what does the
+fix cost" (e.g. provider rate limits on payday → throttle/queue; replica lag → read-your-writes).
+
+**MEDIUM — Exactly-once on the money path: payment row first, durable state, per-hop duplicates**
+(downgraded from HIGH after sd-7: designed correctly unprompted, one probe for the recovery
+worker. One more clean mock → RESOLVED.)
 Recurring: yes (sd-3 core undesigned, sd-5 dual write + weak idempotency key + check-then-act,
 **sd-6** no payment row at all, sync saga with no state persisted before external calls,
 credit-before-debit). Now the #1 technical priority. Interview sentence: *"I persist the payment
