@@ -1,7 +1,7 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-05, after sd-10 (library reservations, first non-fintech mock, strong PASS).
-Previous update: after sd-9._
+_Last updated: 2026-10-05, after sd-11 (meeting rooms, first mock under the 40-minute scope rule,
+strong PASS). Previous update: after sd-10._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
 (consistency, availability, durable state across failures, idempotency, sync vs async, data
@@ -12,7 +12,7 @@ priorities, never counted against a mock. See CALIBRATION in `modes/system-desig
 
 Seven mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
 PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → PASS, moderate (sd-9) →
-**PASS, strong** (sd-10, first non-fintech).
+PASS, strong (sd-10, first non-fintech) → **PASS, strong** (sd-11, 40-minute scope).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -58,6 +58,13 @@ PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → PAS
   external-call outcome unprompted. No fintech patterns over-applied. Gaps: schema missing own-flow
   fields (pickup branch, email, outbox recipient, `available_copies`), per-branch index, waitlist
   promotion async instead of in the check-in TX, Phase 4 pushed again.
+
+- **sd-11** (meeting rooms, minimal scope): most proportionate design of all eleven — three boxes,
+  `tstzrange`, DB-level non-overlap, authZ in the WHERE, fail-fast validation. Lock stated while
+  designing; index walk per query self-caught `rooms.status` + `executed_at`. But `bookings` first shown
+  without `room_id`; the main user action (find a free room by time + capacity) never designed; Phase 4
+  pushed again — then the model answer (numbers, contention per room, cost of 100 cells, per-continent
+  consolidation).
 
 Session leadership, implicit requirements (generic ones) and simplicity are now stable. The fail
 risk is technical correctness in the prompt's core and the regulatory topology — both are things a
@@ -122,6 +129,9 @@ locking statement said while designing** (raised after sd-9; **sd-10 = 4th mock 
 without pickup branch, users without email, outbox without recipient/status, `available_copies` used
 in the SQL but absent from the table, `(isbn, status)` without branch, no `(reserved_by, status)`; the
 title-row lock only stated when probed. The "query first, then table" drill is still pending.)
+**sd-11: improving** — lock stated while designing, and walking each query to its index self-caught
+two missing columns; but the core field (`bookings.room_id`) was still missing on the first pass (5th
+mock). Next step: read the main query's WHERE against the table *before* presenting it.
 Recurring: sd-6 (no amount/currency, no payment row), sd-8 (no phone number, no client idempotency
 key), **sd-9** (no transaction time → feed sorted by `updated_at`; single-column indexes when every
 query is per user — a regression of the sd-7 lesson; unnecessary seq index). Now the most persistent
@@ -131,7 +141,9 @@ Drill (two steps, 30 seconds, before presenting any table):
    the index from it, **user first**.
 2. Walk your own flow and tick every field it uses and every key you said you dedupe on.
 
-**HIGH — Phase 4: one new bottleneck and its cost per step, unprompted** (raised after sd-10: pushed
+**HIGH — Phase 4: one new bottleneck and its cost per step, unprompted** (sd-11: pushed a 4th time; the
+answer after the push was the model one — numbers proving nothing breaks, contention per key, the
+operating cost of 100 cells, consolidation. Only the *opening* is missing. Raised after sd-10: pushed
 in sd-8, sd-9 and sd-10 — every time. After the push the answers are good (sd-10: three options with
 costs and a preference), so the gap is purely *starting it yourself* + *proving the bottleneck with a
 number* (sd-10's "notification providers" was tens/s — not a bottleneck). Previously: sd-8 and sd-9: named the right
@@ -151,6 +163,12 @@ domain-specific ones aren't.
 Drill: add a **"time" family** to the implicit-requirements checklist (time zone / DST, calendar
 vs fixed interval, month-end clamping, business days, cut-off times, "executed by when?") and in
 Phase 1 always ask "what does a domain expert worry about that a generic CRUD app wouldn't?"
+
+**MEDIUM — Design the dominant user action first** (new, sd-11; related sd-9)
+sd-11: "find a free room for this time and size" — what employees do most — never asked or designed
+(only per-room availability). sd-9: the read volume of a read-heavy service never asked. Drill: in
+Phase 1 ask "what's the most common user action?", then design that query first (query → index →
+table).
 
 **MEDIUM — Decisions follow new facts (model drift + re-checking earlier decisions)** (sd-10 improving:
 Redis → waitlist table revised immediately; residual drift: "stop producing outbox messages" vs the
@@ -182,7 +200,8 @@ sharding. One clean mock; a second one moves it to RESOLVED (same bar as implici
 Residual watch: peak *within* the day (assumed the 1st's load spread over 24h — ask "do these all
 fire at the same time?") and a comparison sentence for QPS, not just storage.
 
-**LOW — Justify each component by need (simplicity)**
+**LOW — Justify each component by need (simplicity)** (sd-11: read replicas + read-your-writes routing
+at ~3 QPS — a habit carried over from high-volume mocks; size infra to *this* prompt's numbers)
 Downgraded from MEDIUM: sd-3/sd-4 scored 3, **sd-5 scored 4** (no sharding, no cache, conditional
 provider queue). Watch for one more mock.
 
