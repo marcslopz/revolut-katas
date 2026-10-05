@@ -1,7 +1,7 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-05, after sd-11 (meeting rooms, first mock under the 40-minute scope rule,
-strong PASS). Previous update: after sd-10._
+_Last updated: 2026-10-05, after sd-12 (cinema seats, strong PASS — best overall) + post-review
+Postgres concurrency Q&A. Previous update: after sd-11._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
 (consistency, availability, durable state across failures, idempotency, sync vs async, data
@@ -12,7 +12,8 @@ priorities, never counted against a mock. See CALIBRATION in `modes/system-desig
 
 Seven mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
 PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → PASS, moderate (sd-9) →
-PASS, strong (sd-10, first non-fintech) → **PASS, strong** (sd-11, 40-minute scope).
+PASS, strong (sd-10, first non-fintech) → PASS, strong (sd-11, 40-minute scope) → **PASS, strong — best
+overall** (sd-12).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -65,6 +66,12 @@ PASS, strong (sd-10, first non-fintech) → **PASS, strong** (sd-11, 40-minute s
   without `room_id`; the main user action (find a free room by time + capacity) never designed; Phase 4
   pushed again — then the model answer (numbers, contention per room, cost of 100 cells, per-continent
   consolidation).
+
+- **sd-12** (cinema seats): most common action asked in the first question; query → index for every
+  path; lock order stated (deadlock avoidance); **Phase 4 opened unprompted for the first time**
+  (per-screening occupancy, shard key, hot shard, waiting room). Gaps: `paying` status designed then
+  missing from the table, `booking_seats` without screening; the late-payment race needed two probes;
+  ρ first applied to the whole DB (fixed in one turn); "try to unlock" deadlocks again.
 
 Session leadership, implicit requirements (generic ones) and simplicity are now stable. The fail
 risk is technical correctness in the prompt's core and the regulatory topology — both are things a
@@ -124,7 +131,7 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
-**HIGH — Data layer from the queries: every field the flow uses, indexes from the main query, and the
+**MEDIUM — Data layer from the queries: every field the flow uses, indexes from the main query, and the
 locking statement said while designing** (raised after sd-9; **sd-10 = 4th mock running**: waitlist
 without pickup branch, users without email, outbox without recipient/status, `available_copies` used
 in the SQL but absent from the table, `(isbn, status)` without branch, no `(reserved_by, status)`; the
@@ -132,6 +139,14 @@ title-row lock only stated when probed. The "query first, then table" drill is s
 **sd-11: improving** — lock stated while designing, and walking each query to its index self-caught
 two missing columns; but the core field (`bookings.room_id`) was still missing on the first pass (5th
 mock). Next step: read the main query's WHERE against the table *before* presenting it.
+**sd-12: the query → index walk and the lock are now habitual** (every path, unprompted, with lock
+order). What remains is narrower: **the state machine ↔ table check** — `paying` designed 10 minutes
+earlier but absent from the table; `booking_seats` without `screening_id`.
+**Re-scoped 2026-10-05 (candidate):** the real round is spoken design — nobody checks exact SQL, every
+timestamp or NULL-ability. Downgraded to MEDIUM and narrowed to what a whiteboard conversation reaches:
+key entities + the field the core flow depends on, the state list, the mechanism that guarantees the
+invariant, and roughly which index serves the main query. SQL-level slips from the drills are bonus
+polish, not interview risk.
 Recurring: sd-6 (no amount/currency, no payment row), sd-8 (no phone number, no client idempotency
 key), **sd-9** (no transaction time → feed sorted by `updated_at`; single-column indexes when every
 query is per user — a regression of the sd-7 lesson; unnecessary seq index). Now the most persistent
@@ -141,7 +156,9 @@ Drill (two steps, 30 seconds, before presenting any table):
    the index from it, **user first**.
 2. Walk your own flow and tick every field it uses and every key you said you dedupe on.
 
-**HIGH — Phase 4: one new bottleneck and its cost per step, unprompted** (sd-11: pushed a 4th time; the
+**MEDIUM — Phase 4: one new bottleneck and its cost per step, unprompted** (downgraded after sd-12:
+**opened unprompted for the first time** with numbers, per-screening occupancy, shard key, hot shard and
+a mitigation. One more unprompted mock → RESOLVED. sd-11: pushed a 4th time; the
 answer after the push was the model one — numbers proving nothing breaks, contention per key, the
 operating cost of 100 cells, consolidation. Only the *opening* is missing. Raised after sd-10: pushed
 in sd-8, sd-9 and sd-10 — every time. After the push the answers are good (sd-10: three options with
@@ -164,11 +181,19 @@ Drill: add a **"time" family** to the implicit-requirements checklist (time zone
 vs fixed interval, month-end clamping, business days, cut-off times, "executed by when?") and in
 Phase 1 always ask "what does a domain expert worry about that a generic CRUD app wouldn't?"
 
-**MEDIUM — Design the dominant user action first** (new, sd-11; related sd-9)
+**MEDIUM — Design the dominant user action first** (new, sd-11; related sd-9; **sd-12: asked in the
+first question and designed first** — one clean mock, one more → RESOLVED)
 sd-11: "find a free room for this time and size" — what employees do most — never asked or designed
 (only per-room availability). sd-9: the read volume of a read-heavy service never asked. Drill: in
 Phase 1 ask "what's the most common user action?", then design that query first (query → index →
 table).
+
+**MEDIUM — Races at timer/lifecycle boundaries** (new, sd-12; related sd-10)
+sd-12: payment completes right after the hold expired and someone else held the seats — needed two
+probes (first answer "take Bruno's seats" moved the problem). sd-10: the next waiter's pickup window
+ticking while their notification was stuck. Drill: for every timer in the design, say "what if the other
+event arrives one second after the timer fires?" and make the transition conditional on the expected
+state (`WHERE status = 'held'`), with a compensation for the 0-rows case.
 
 **MEDIUM — Decisions follow new facts (model drift + re-checking earlier decisions)** (sd-10 improving:
 Redis → waitlist table revised immediately; residual drift: "stop producing outbox messages" vs the
@@ -629,3 +654,21 @@ and Positive signals above.)
     interviewer asks.
   - Idempotency by constraint (vault accrual `UNIQUE(account_id, accrual_date)`) had to be pointed
     out again — batch cursors were offered as the safety mechanism.
+
+- **2026-10-05 — "State machine → table" drill, 3½ booking cases** (gym classes, restaurant tables, car
+  rental, doctor appointments — stopped during the tables of the last one, candidate tired but "sees the
+  concept"). Staged format (states → tables → queries) with direct corrections, no challenge questions.
+  Coaching evidence only.
+  - **Landed**: one table + status vs separate tables ("does the waiting thing become the same entity?");
+    entity separation (reservation lifecycle vs table/car availability derived from active rows);
+    partial unique index for "one active per slot"; walk-in as `checked_in` with an explicit `source`;
+    `car_id` NULL until pickup; capacity per category *per day*; index-only reasoning (own index choice
+    beat the coach's in case 3).
+  - **Recurring slips (same family as the HIGH item)**: states used in transitions but missing from the
+    CHECK (`no_show`, `checked_in`), missing date in a uniqueness key, transition timestamps declared
+    NOT NULL, duplicated slot data that a reschedule must keep in sync; condition-of-origin forgotten in
+    the "easy" UPDATEs (check-in, overdue return), off-by-one / arithmetic on the indexed column in a
+    timer, `FOR UPDATE` without `LIMIT … SKIP LOCKED`.
+  - Coach process note: twice gave more than asked (full solution in case 1; a new capacity table in
+    case 3 that confused the candidate) — stay inside the candidate's model and stage.
+  - Pending: the "Timer races" block.

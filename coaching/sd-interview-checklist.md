@@ -169,6 +169,29 @@ don't wait to be asked why.
   (`sent → confirmed/returned`). A non-business-day order is deemed received the next business day
   (PSD2).
 
+## Postgres concurrency cheat sheet (added 2026-10-05, after sd-12 Q&A)
+
+- **Index vs WHERE**: the index holds the columns that *find* the rows (equalities first, then the
+  range/order); the WHERE holds *every* condition correctness needs, indexed or not. A hold by
+  `(screening_id, seat_id = ANY(:ids))` needs only the PK; `status`/`held_until` stay in the WHERE.
+- **Status in an index** only when the query searches by state without a more selective key (the expiry
+  worker) — and make it **partial**: `CREATE INDEX … (held_until) WHERE status IN ('held','paying')`.
+- **All-or-nothing multi-row claim**: one `UPDATE … WHERE … seat_id = ANY(:ids) AND <free or expired>
+  RETURNING seat_id`; commit only if N rows came back, else ROLLBACK. Under READ COMMITTED Postgres
+  re-evaluates the WHERE on the new row version after waiting → no double-sell.
+- **Deadlocks** need waiting + different lock order. Prevent with `SELECT … ORDER BY key FOR UPDATE`
+  (fixed order), or don't wait: `FOR UPDATE NOWAIT` (fail fast — good at premieres) / `SKIP LOCKED`
+  (treat locked as unavailable; workers always use it, so they never deadlock with users).
+- **If a deadlock happens**, Postgres detects it (`deadlock_timeout`, 1 s) and aborts one TX with
+  SQLSTATE 40P01 → the app retries. Never "force unlock".
+- **Long lock waits** (no cycle) are NOT auto-resolved: keep transactions short, **no external calls
+  inside a TX**, set `lock_timeout`, `statement_timeout`, `idle_in_transaction_session_timeout`. Emergency
+  only: `pg_cancel_backend(pid)` (cancel query) / `pg_terminate_backend(pid)` (kill session → rollback);
+  find the blocker with `pg_stat_activity` + `pg_blocking_pids(pid)`.
+- **Occupancy of a serialized resource**: ρ = λ (requests/s on *that* row/worker/partition) × S (seconds
+  each holds it). < 50% fine, > 70% risky (wait ≈ S/(1−ρ)), ≥ 100% the queue grows without bound. Name
+  the serialized unit first.
+
 ## Mid-session checkpoint (self-imposed, ~25 min in)
 
 Say to yourself, out loud if the format allows it: **"Which of F-N-I / skeleton / D-I-S-E / L-R-G

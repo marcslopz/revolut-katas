@@ -77,6 +77,12 @@ Fintech domain depth and legal detail are a **bonus**, not the bar.
   no reminders/notifications/transfers). Answer clarifying questions with the **simplest** business
   rule; don't add extra actors, actions, timers or notification flows the candidate didn't ask about,
   and when they ask "do we need X?", default to "no, out of scope" unless X is the core.
+- **Spoken-design depth** (set by the candidate, 2026-10-05): the real round is a design spoken aloud,
+  not SQL. Judge the data layer at the level a whiteboard conversation reaches: the main entities and
+  their key fields, the state machine, what guarantees the invariant (unique constraint / conditional
+  update / lock) and roughly which index serves the main query. Do **not** deduct for exact SQL syntax,
+  every timestamp column, NULL/NOT NULL details or a table that isn't 100% complete. Missing a field the
+  core flow obviously depends on, or having no mechanism for the invariant, still counts.
 - **Stakeholder answers** should keep the domain simple: when a niche mechanic would otherwise
   become the hard part, state it as a simple business rule instead of leaving it to be discovered.
 - **Reviews:** domain/legal gaps go in a separate "Bonus (not scored)" note and **never lower a
