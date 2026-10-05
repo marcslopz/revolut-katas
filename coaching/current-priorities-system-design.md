@@ -1,7 +1,7 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-04, after sd-9 (transaction history feed, PASS — moderate margin). Previous
-update: after sd-8._
+_Last updated: 2026-10-05, after sd-10 (library reservations, first non-fintech mock, strong PASS).
+Previous update: after sd-9._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
 (consistency, availability, durable state across failures, idempotency, sync vs async, data
@@ -11,7 +11,8 @@ priorities, never counted against a mock. See CALIBRATION in `modes/system-desig
 ## Overall trend
 
 Seven mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
-PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → **PASS, moderate** (sd-9).
+PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → PASS, moderate (sd-9) →
+**PASS, strong** (sd-10, first non-fintech).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -51,6 +52,13 @@ PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → **P
   prompts), Phase 4 bottleneck pushed. Single-column indexes again; read volume of a read-heavy
   service never asked.
 
+- **sd-10** (library reservations): best Phase 1 of all ten — hotspot recognised as lock contention
+  unprompted, waitlist discovered, queue → table the moment it became long-lived. Title-row conditional
+  update with the loser joining the waitlist in the same TX (after a probe it was "implied"). Every
+  external-call outcome unprompted. No fintech patterns over-applied. Gaps: schema missing own-flow
+  fields (pickup branch, email, outbox recipient, `available_copies`), per-branch index, waitlist
+  promotion async instead of in the check-in TX, Phase 4 pushed again.
+
 Session leadership, implicit requirements (generic ones) and simplicity are now stable. The fail
 risk is technical correctness in the prompt's core and the regulatory topology — both are things a
 fintech interviewer probes first.
@@ -72,6 +80,9 @@ fintech interviewer probes first.
 - **Model drift / late self-catch** — sd-3, sd-4, **sd-5** (tables 1 → 2 → 4 → 2; `pending` added then
   dropped; `reason`, outbox, nullable `end_at` never reached the canvas; automatic quorum promotion
   vs "wait for Europe" never reconciled). Three mocks running.
+- **Failure paths for every external call, without being asked** — sd-6/sd-7 needed probes; **sd-8**
+  (only late reversal probed) and **sd-10** (every outcome unprompted: success, transient vs invalid
+  reject, timeout, crash before/after send, breaker + half-open). Resolved as of sd-10.
 - **Core-first and proportion of depth** — sd-3 fail, sd-4 success, **sd-5 fail** (Phase 1 + start of
   Phase 2 spent on table layout — needed a redirect; the scheduler → occurrence → exactly-once path
   only described when asked).
@@ -106,7 +117,11 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
-**HIGH — Schema completeness + indexes derived from the main query** (raised from MEDIUM after sd-9)
+**HIGH — Data layer from the queries: every field the flow uses, indexes from the main query, and the
+locking statement said while designing** (raised after sd-9; **sd-10 = 4th mock running**: waitlist
+without pickup branch, users without email, outbox without recipient/status, `available_copies` used
+in the SQL but absent from the table, `(isbn, status)` without branch, no `(reserved_by, status)`; the
+title-row lock only stated when probed. The "query first, then table" drill is still pending.)
 Recurring: sd-6 (no amount/currency, no payment row), sd-8 (no phone number, no client idempotency
 key), **sd-9** (no transaction time → feed sorted by `updated_at`; single-column indexes when every
 query is per user — a regression of the sd-7 lesson; unnecessary seq index). Now the most persistent
@@ -116,19 +131,10 @@ Drill (two steps, 30 seconds, before presenting any table):
    the index from it, **user first**.
 2. Walk your own flow and tick every field it uses and every key you said you dedupe on.
 
-**MEDIUM — Failure paths for every external call, without being asked** (downgraded from HIGH
-after sd-8: success/failed/pending/5xx/timeout + checker covered unprompted; only **late reversal**
-needed a probe. sd-9 had no external call; its six crash/duplicate edge cases were unprompted and
-correct — still awaiting a clean external-call mock to resolve.)
-Recurring: sd-6 (crash mid-saga deferred and never answered), sd-7 (provider reject never covered,
-returns only when prompted, recovery worker only after a probe). The happy path comes out right
-first; failure outcomes wait for the interviewer.
-Drill: for every external call say the four outcomes — **success / reject / timeout (unknown) /
-late reversal** — and what each does to the row's status and the hold. Whenever state lives in a
-status column, name the recovery worker in the same breath: "non-terminal AND updated_at < now − N,
-SKIP LOCKED; created → resend with the same key, sent → query the provider".
-
-**MEDIUM — Phase 4: one new bottleneck and its cost per step** (sd-8 and sd-9: named the right
+**HIGH — Phase 4: one new bottleneck and its cost per step, unprompted** (raised after sd-10: pushed
+in sd-8, sd-9 and sd-10 — every time. After the push the answers are good (sd-10: three options with
+costs and a preference), so the gap is purely *starting it yourself* + *proving the bottleneck with a
+number* (sd-10's "notification providers" was tens/s — not a bottleneck). Previously: sd-8 and sd-9: named the right
 bottleneck — aggregator, Postgres primary → shard by user_id — but only after a push, and sd-9 without
 numbers or cost. Opener to practise: "at 10x: N writes/s → X is the bottleneck → fix Y, which costs Z".)
 Recurring: sd-4, sd-5, sd-6, sd-7 (no explicit local → regional → global staging; sd-7 named no
@@ -146,7 +152,9 @@ Drill: add a **"time" family** to the implicit-requirements checklist (time zone
 vs fixed interval, month-end clamping, business days, cut-off times, "executed by when?") and in
 Phase 1 always ask "what does a domain expert worry about that a generic CRUD app wouldn't?"
 
-**MEDIUM — Decisions follow new facts (model drift + re-checking earlier decisions)**
+**MEDIUM — Decisions follow new facts (model drift + re-checking earlier decisions)** (sd-10 improving:
+Redis → waitlist table revised immediately; residual drift: "stop producing outbox messages" vs the
+earlier fix, Redis dropped silently)
 Recurring: sd-3, sd-4, sd-5 (canvas drift), sd-8 (outbox vs status publisher), **sd-9** (consumers drawn
 writing to Elastic/NoSQL directly *and* via the outbox; "lag the burst until 7 AM" decided before
 asking the freshness SLA and not revisited when "5 s at any time" arrived).

@@ -71,6 +71,12 @@ Fintech domain depth and legal detail are a **bonus**, not the bar.
 - **Accept principle-level answers** for compliance and security: "each user's data stays in their
   home region, only the minimum crosses, encrypted in transit and at rest, card data tokenised or
   held by the provider" is a complete answer. Naming KYC/AML/PCI/GDPR is a plus.
+- **Scope sized for a ~40-minute interview** (set by the candidate after sd-10, 2026-10-05): the
+  real slot is about 40 minutes, so the prompt and every stakeholder answer must keep the scope to the
+  **minimum that still has one interesting core** (e.g. one branch, reserve + staff add/remove titles,
+  no reminders/notifications/transfers). Answer clarifying questions with the **simplest** business
+  rule; don't add extra actors, actions, timers or notification flows the candidate didn't ask about,
+  and when they ask "do we need X?", default to "no, out of scope" unless X is the core.
 - **Stakeholder answers** should keep the domain simple: when a niche mechanic would otherwise
   become the hard part, state it as a simple business rule instead of leaving it to be discovered.
 - **Reviews:** domain/legal gaps go in a separate "Bonus (not scored)" note and **never lower a
