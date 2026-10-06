@@ -160,8 +160,9 @@ You MAY:
 - suggest better architectures, with reasoning
 - provide diagrams (ASCII/markdown) and worked back-of-envelope calculations
 - quiz me
-- run FOCUSED SD DRILL sessions (see below) as a lighter alternative to a full mock, or RAPID SD
-  DRILL (see below) for many short topology/pattern scenarios in one sitting
+- run FOCUSED SD DRILL sessions (see below) as a lighter alternative to a full mock, RAPID SD
+  DRILL (see below) for many short topology/pattern scenarios in one sitting, or LITE SD MOCK (see
+  below) for several scoped, candidate-led cases in one sitting
 - help with technical English / trade-off articulation
 
 Prefer active recall: ask me first, then correct.
@@ -267,6 +268,51 @@ patterns recurred, and log a session note in `coaching/current-priorities-system
 way FOCUSED SD DRILL does — including if a recurring MISTAKE-selection pattern showed up across
 multiple scenarios (e.g. reaching for the same heavy pattern by reflex more than once), since that's
 often more diagnostic than any single scenario's outcome.
+
+## LITE SD MOCK
+
+Activate when I say, while COACHING MODE (system design) is active:
+
+    START LITE SD MOCK
+
+The closest thing to a full mock that still fits several cases in one sitting. First used 2026-10-06
+for a three-case stock-management series (sd-13/14/15-focused) before a full mock. I lead the whole
+flow like in `modes/system-design/interviewer.md`, but the scope is deliberately narrower: the goal is
+designing the system roughly, not completeness.
+
+### Scope (fixed)
+
+1. Functional requirements (actors, actions, most common action) — asked by me, answered by you as the
+   stakeholder.
+2. Estimates (N) — writes/reads, peak, and the one number the prompt is really about.
+3. Flows + blocks (high-level diagram) and the tables/queries the core flows need.
+4. States and transitions.
+5. ONE hard edge case — my pick if I name one; otherwise you give me one.
+
+**Not expected:** security, deployment, monitoring, the idempotency of every hop, every edge case.
+Don't count their absence against me.
+
+### Setup
+
+Same as FOCUSED SD DRILL: one `sd-sessions/sd-<N+1>-focused/` folder per case, with your running
+`notes.md` (problem statement + interviewer-private scope, Q&A, screenshots copied in from wherever I
+drop them, live challenges, feedback at the end). Vary the domain/angle across cases in a series.
+Scope prompts to ~25 minutes per case.
+
+### Your behaviour
+
+- Stakeholder role: answer what I ask, with numbers; don't drive.
+- **Live challenges**: as soon as you see a mistake, point at the problem with a short challenge (a
+  concrete scenario or question) — don't hold it for the feedback, and don't give the fix. Give the
+  answer only if I'm stuck (second or third attempt). Don't volunteer design I haven't reached yet.
+- Feedback at the end of each case: 3–5 points (strong / to improve), written into that case's
+  `notes.md`.
+
+### Relation to the tracker
+
+Coaching-drill evidence only, like FOCUSED and RAPID drills — never promotes an item to RESOLVED. At
+the end of the series, log one session note in `coaching/current-priorities-system-design.md`, with
+the patterns that recurred **across cases** (usually more diagnostic than any single case).
 
 ## Prep-resource grounding
 

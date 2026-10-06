@@ -1,6 +1,6 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-05, after sd-12 (cinema seats, strong PASS — best overall) + post-review
+_Last updated: 2026-10-06, lite-mock stock series (sd-13/14/15-focused) logged under PRACTICED IN COACHING. Before that: 2026-10-05, after sd-12 (cinema seats, strong PASS — best overall) + post-review
 Postgres concurrency Q&A. Previous update: after sd-11._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
@@ -259,6 +259,29 @@ Per [[coaching-drill-vs-mock-evidence]]: this is coaching-session evidence, not 
 can surface or reinforce a gap, but doesn't promote anything to RESOLVED. Only a future full mock
 does that. (Two prior entries here — the RAPID SD DRILL and the strong-consistency teaching pass —
 are now confirmed by sd-2 and have moved to RESOLVED above.)
+
+- **2026-10-06 — "lite mock" stock series (sd-13/14/15-focused), 3 cases before the next full mock.** New format set
+  by the candidate: full flow led by the candidate but scoped to F → N → flow/blocks → states → one hard edge case, no
+  security/deployment/monitoring boilerplate; from case 2, live challenges that point at the problem (answer only if
+  stuck). Cases: online store inventory (counter + 15-min hold, hot SKU), multi-channel sync with marketplaces we don't
+  control (oversell tolerance, buffer, negative counter + backorders), perishable grocery stock (batches, FEFO,
+  sellability per delivery date).
+  - **Timer races: held unprompted** in case 1 (conditional transition, 0-rows branch, late success → re-reserve or
+    `refunded`) and in case 2's edge case (durable `canceled` + outbox before the external call). Drill evidence only —
+    the sd-12 MEDIUM item still needs a mock.
+  - **Recurring across the 3 cases — invariants/counters dropped on secondary paths**: the main reserve path was right
+    every time, but releases and re-checks on other paths needed challenges (case 1 failed callback — self-caught;
+    case 2 cancel release + `CHECK >= 0` vs unrejectable orders; case 3 release on `failed`, double decrement at pick,
+    sellability forgotten on reallocation). Habit to carry into the mock: **for every state transition, say what
+    happens to the counters and which invariant it re-checks.**
+  - **Replica reflex** (cases 2 and 3): read replicas at ~100 / ~21 QPS; case 2 from a ×1000 slip ("100k QPS is low").
+    Defended in case 3 as availability → corrected to hot standby. Estimate item: compare before deciding.
+  - **Stakeholder facts / the prompt's key concept applied late**: case 2 "reply with an error so the marketplace
+    refunds" vs "already sold"; case 3 expiry rule asked only after two pointers.
+  - Positive: F → N → core flow order fixed after case 1 and held; conditional transitions and lock ordering habitual;
+    outbox reused unprompted; flow-by-flow table walk worked in case 1 (dropped in case 2 → table drift returned).
+  - Concept taught: buffer sizing = sales velocity × sync window (not stock level); short lock window + SKIP LOCKED
+    false "out of stock" (MAX vs SUM check, API-side retries, code in the case 1 discussion).
 
 (The entries below predate sd-3/sd-4. Their open questions — implicit requirements unprompted,
 D-I-S-E depth under the clock, quorum failover recall — were answered by those mocks; see RESOLVED
