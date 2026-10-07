@@ -137,6 +137,18 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
 
+**sd-21 summary (2026-10-07, second timed mock)**: PASS (moderate), **45 min — on budget** (req 8 / HL 10 / deep 26). Time item improving
+(one mock). Trade-off of the faster Phase 1: **core business rules not asked** (unavailable → waitlist, when each timer starts, per-user limit)
+— add 2 min of "unavailable / timers / limits" questions to every reservation/stock prompt. Secondary transitions skipped the shared
+structures again (new copies bypass the waitlist; the 5-item limit never designed; `reservations` without library_id). Timer race (user at the
+counter as the hold expires) not addressed unprompted — still open.
+
+**sd-20 summary (2026-10-07, first timed mock)**: PASS, technically strong; **62 min vs 40–45 budget** (requirements 19, deep dive 34).
+New HIGH item for the real round: **time management** — requirements ≤ 8–10 min (estimates on the canvas in 2 min), high level with a
+2-min walk of every flow, deep dive one flow per ~4 min riskiest first, move to scaling by ~35 min. Positives: numbers copied right all
+through; "unique within what?" held twice (`(cell, transfer_id)`, provider ids); Phase 4 unprompted 3rd mock running; saga with retry-not-
+compensate on timeout. Gap: outbox for the crash between commit and external call deferred as "improvement" (money path minimum).
+
 **sd-16 summary (2026-10-06)**: Phase 4 and dominant-action items moved to RESOLVED. New / reinforced:
 - **MEDIUM — Idempotency key scope: "unique within what?"** (new, recurring: case 2 lite mock `order_id` per marketplace
   + **sd-16 `sale_id` per till** used as a global key → real sales dropped as duplicates). Drill: for every external id,
@@ -278,6 +290,21 @@ Per [[coaching-drill-vs-mock-evidence]]: this is coaching-session evidence, not 
 can surface or reinforce a gap, but doesn't promote anything to RESOLVED. Only a future full mock
 does that. (Two prior entries here — the RAPID SD DRILL and the strong-consistency teaching pass —
 are now confirmed by sd-2 and have moved to RESOLVED above.)
+
+- **2026-10-07 — lite mocks sd-17/18/19-focused** (card spending limits, restaurant tables, stock transfers with offline scanners;
+  planned 9, stopped at 3).
+  - **"Unique within what?" 2 of 3**: right for the processor event and the partner request id; **missed for a per-device scan_id**
+    (fixed on one challenge). Keep asking it for every external id.
+  - **Numbers copied wrong onto the canvas, 3 cases running** (20M vs 2M, 200k vs 300k, events ×0.9) — the decision followed the wrong
+    number until challenged. Habit: read each sticky back against the stakeholder's answer before deriving.
+  - **External snapshot vs own state** (sd-17 edge case): provider's captured total treated as input to our counters; "committed reads"
+    as protection against a stale HTTP read. Rule: apply each external event once; reconcile only to close.
+  - Counters on secondary transitions: improving — sd-19 late scans compensated (+8) unprompted in shape; sd-17 partial capture release
+    needed 3 attempts.
+  - Positive: invariant enforced by a **partial UNIQUE** (sd-18), invariant table drawn first in all three, conditional transitions and
+    lock order habitual, upsert on first challenge, edge-case premises found in Phase 1 (sd-17 timeout leak, sd-19 unordered scans).
+  - Recurring minor: precomputed user × place distances (sd-16, sd-18) → "geo index, nearest-N"; time-condition direction slip; states
+    not presented as a transition table.
 
 - **2026-10-06 — "lite mock" stock series (sd-13/14/15-focused), 3 cases before the next full mock.** New format set
   by the candidate: full flow led by the candidate but scoped to F → N → flow/blocks → states → one hard edge case, no
