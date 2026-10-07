@@ -1,6 +1,6 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-06, lite-mock stock series (sd-13/14/15-focused) logged under PRACTICED IN COACHING. Before that: 2026-10-05, after sd-12 (cinema seats, strong PASS — best overall) + post-review
+_Last updated: 2026-10-06, after sd-16 (click & collect, PASS moderate) and the lite-mock stock series (sd-13/14/15-focused) logged under PRACTICED IN COACHING. Before that: 2026-10-05, after sd-12 (cinema seats, strong PASS — best overall) + post-review
 Postgres concurrency Q&A. Previous update: after sd-11._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
@@ -13,7 +13,7 @@ priorities, never counted against a mock. See CALIBRATION in `modes/system-desig
 Seven mocks: BORDERLINE → BORDERLINE → BORDERLINE (trending up) → PASS (low margin) → BORDERLINE →
 PASS (sd-6, after recalibration) → PASS (sd-7) → PASS, strong (sd-8) → PASS, moderate (sd-9) →
 PASS, strong (sd-10, first non-fintech) → PASS, strong (sd-11, 40-minute scope) → **PASS, strong — best
-overall** (sd-12).
+overall** (sd-12) → PASS, moderate (sd-16, click & collect, after the lite-mock stock series sd-13/14/15-focused).
 
 - **sd-1**: pacing chaos (4 redirects).
 - **sd-2**: no redirects, but ended inside Phase 3 and handed structure back ("anything else?").
@@ -126,10 +126,29 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
 - **Exactly-once on the money path (payment row first, durable state, hold before the irreversible
   step, idempotent provider key)** — failed sd-3, sd-5, sd-6; **designed unprompted in sd-7** (one
   probe for the recovery worker) **and sd-8** (clean). Resolved as of sd-8.
+- **Phase 4 opened unprompted** — pushed in sd-8/9/10/11; **opened unprompted in sd-12 and sd-16** (sd-16: cells per
+  region with residency, ~3k WPS till writes named as the 10x bottleneck). Resolved as of sd-16. Residual: the first
+  shard key was chosen for the read while the bottleneck was writes (fixed on one probe) — say which operation the key
+  must keep single-shard.
+- **Design the dominant user action first** — missed sd-11 (free-room search); **asked and designed first in sd-12 and
+  sd-16** (per-store availability view, query → index). Resolved as of sd-16.
 - **Core-first and proportion of depth** — sd-3/sd-5/sd-6 failures; **sd-7 and sd-8 went to the
   core (the money entity and its flow) within the first minutes**. Resolved as of sd-8.
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
+
+**sd-16 summary (2026-10-06)**: Phase 4 and dominant-action items moved to RESOLVED. New / reinforced:
+- **MEDIUM — Idempotency key scope: "unique within what?"** (new, recurring: case 2 lite mock `order_id` per marketplace
+  + **sd-16 `sale_id` per till** used as a global key → real sales dropped as duplicates). Drill: for every external id,
+  ask "unique within what?" and make the key the full natural identity (`(store_id, till_id, sale_id)`).
+- **Timer races (below) — still open**: sd-16 no-show → late collection sale needed three turns and ended with a counter
+  error (sale marked completed with no decrement → phantom stock). Same cross-case pattern as the lite mocks: counters on
+  secondary transitions.
+- **Data layer (below)**: sd-16's drawn schema had no stock table (`sku_stores` only in the queries), `orders` without
+  `store_id`. Draw the invariant-holding entity first.
+- **Simplicity (below, LOW → watch)**: sd-16 precomputed users × stores distances + Redis for 200 static stores;
+  two-region sync replication kept after correcting 99.99% → 99.9%. Re-read the requirement number before adding a box.
+
 
 **MEDIUM — Data layer from the queries: every field the flow uses, indexes from the main query, and the
 locking statement said while designing** (raised after sd-9; **sd-10 = 4th mock running**: waitlist
@@ -156,7 +175,7 @@ Drill (two steps, 30 seconds, before presenting any table):
    the index from it, **user first**.
 2. Walk your own flow and tick every field it uses and every key you said you dedupe on.
 
-**MEDIUM — Phase 4: one new bottleneck and its cost per step, unprompted** (downgraded after sd-12:
+**~~MEDIUM~~ RESOLVED as of sd-16 (see RESOLVED) — Phase 4: one new bottleneck and its cost per step, unprompted** (downgraded after sd-12:
 **opened unprompted for the first time** with numbers, per-screening occupancy, shard key, hot shard and
 a mitigation. One more unprompted mock → RESOLVED. sd-11: pushed a 4th time; the
 answer after the push was the model one — numbers proving nothing breaks, contention per key, the
@@ -181,7 +200,7 @@ Drill: add a **"time" family** to the implicit-requirements checklist (time zone
 vs fixed interval, month-end clamping, business days, cut-off times, "executed by when?") and in
 Phase 1 always ask "what does a domain expert worry about that a generic CRUD app wouldn't?"
 
-**MEDIUM — Design the dominant user action first** (new, sd-11; related sd-9; **sd-12: asked in the
+**~~MEDIUM~~ RESOLVED as of sd-16 (see RESOLVED) — Design the dominant user action first** (new, sd-11; related sd-9; **sd-12: asked in the
 first question and designed first** — one clean mock, one more → RESOLVED)
 sd-11: "find a free room for this time and size" — what employees do most — never asked or designed
 (only per-room availability). sd-9: the read volume of a read-heavy service never asked. Drill: in
