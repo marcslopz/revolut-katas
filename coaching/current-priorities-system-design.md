@@ -1,6 +1,6 @@
 # Current Coaching Priorities — System Design
 
-_Last updated: 2026-10-06, after sd-16 (click & collect, PASS moderate) and the lite-mock stock series (sd-13/14/15-focused) logged under PRACTICED IN COACHING. Before that: 2026-10-05, after sd-12 (cinema seats, strong PASS — best overall) + post-review
+_Last updated: 2026-10-08, after sd-20/21/22 (timed afternoon mocks, all PASS). Previously: 2026-10-06, after sd-16 (click & collect, PASS moderate) and the lite-mock stock series (sd-13/14/15-focused) logged under PRACTICED IN COACHING. Before that: 2026-10-05, after sd-12 (cinema seats, strong PASS — best overall) + post-review
 Postgres concurrency Q&A. Previous update: after sd-11._
 
 **Calibration (2026-10-04, set by the candidate):** priorities here track **technical design**
@@ -132,10 +132,33 @@ item here — only a full mock under `modes/system-design/interviewer.md` does.
   must keep single-shard.
 - **Design the dominant user action first** — missed sd-11 (free-room search); **asked and designed first in sd-12 and
   sd-16** (per-store availability view, query → index). Resolved as of sd-16.
+- **Time management (~40–45 min end to end)** — sd-20 62 min; **sd-21 45 and sd-22 ~39, both on budget**. Resolved as of sd-22.
+  Residual: with a short deep dive, announce the edge-case sweep so it isn't pre-empted.
 - **Core-first and proportion of depth** — sd-3/sd-5/sd-6 failures; **sd-7 and sd-8 went to the
   core (the money entity and its flow) within the first minutes**. Resolved as of sd-8.
 
 ## CURRENT PRACTICE PRIORITIES (mock-derived)
+
+**sd-22 summary (2026-10-07, third timed mock — online shop stock)**: PASS (moderate, low margin), **~39 min**. Time on budget for the
+2nd mock running → **time management moved to RESOLVED**. Improving:
+- **counter walk on every transition, unprompted** (quantity / available, five transitions, all correct) — first clean mock after
+  sd-16 / sd-21 misses; one more → RESOLVED
+- "unique within what?" held (checkout's order id as `orders` PK, `ON CONFLICT` → same response)
+- **late payment after expiry** answered on the first probe (re-check, else refund)
+
+New / reinforced:
+- **MEDIUM — Read path for read-heavy NFRs (new, related to sd-9 / sd-11)**: 5k/s availability reads (p99 < 100 ms) listed with
+  replicas in requirements, then never drawn, designed or scaled. The dominant action *by volume* was dropped, while the dominant
+  *write* got all the depth. Drill: when reads ≫ writes, put the read path in the high level (cache or replica, staleness SLA, which path
+  is authoritative).
+- **MEDIUM — Shard key from the invariant, and only when a number forces it (recurring: sd-16, sd-21, sd-22)**: sd-16 key chosen for
+  the read; sd-21 shard by user splits per-library counters; sd-22 shard by user for per-SKU stock, then by SKU + saga at ~200 WPS
+  (one writer). Drill: open Phase 4 with "N writes/s → still one writer? → first real bottleneck is X"; when sharding, say which
+  transaction the key must keep single-shard.
+- **Timer races (below)**: the concurrent expiry/success race first locked the SKU rows, not the order row (fixed on a follow-up).
+  Improving: the late-event case is now answered on the first probe.
+- Process: edge cases come last in the candidate's DISE flow. Announce the sweep at the start of the deep dive so a real interviewer
+  waits. Asked the interviewer to list actors in Phase 1 (one-off; propose them, then confirm).
 
 **sd-21 summary (2026-10-07, second timed mock)**: PASS (moderate), **45 min — on budget** (req 8 / HL 10 / deep 26). Time item improving
 (one mock). Trade-off of the faster Phase 1: **core business rules not asked** (unavailable → waitlist, when each timer starts, per-user limit)
